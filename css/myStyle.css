@@ -1,0 +1,28 @@
+.clickable {
+    cursor: pointer;
+}
+#details {
+    max-height: 400px;
+    overflow-y: scroll;
+}
+#container {
+    height: 400px;
+    position: relative;
+}
+#fullscreen,
+#buildingPlan {
+    width: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+#fullscreen {
+    z-index: 10;
+}
+#buildingPlan {
+    z-index: 5;
+    min-width: 400px;
+}
+hr {
+    color: black;
+}

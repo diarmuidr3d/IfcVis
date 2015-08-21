@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IfcVis</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+    <script type="text/javascript" src="js/elements.js"></script>
+    <script type="text/javascript" src="js/sparqlAccessor.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/myStyle.css">
+</head>
+<body>
+<div class="container-fluid">
+
+    <div class="row" >
+        <div class="col-md-5"  id="container">
+            <div class="btn btn-primary" type="button" onmousedown=fullscreen(); id="fullscreen">Fullscreen</div>
+            <div id="buildingPlan">
+            </div>
+        </div>
+        <div class="col-md-7" id="details">
+        </div>
+    </div>
+    <div class="row" id="controls">
+        <div class="btn-group btn-group-justified">
+            <div class="btn-group">
+                <button class="btn btn-primary dropdown-toggle disabled"
+                        type="button" data-toggle="dropdown" id="relocateOuter">Relocate
+                    <span class="caret"></span></button>
+                <ul class="dropdown-menu" id="RelocateDropdown">
+                </ul>
+            </div>
+            <div class="btn btn-primary disabled" type="button" onmousedown=MODIFY_SENSOR.displayMainForm(true);
+                 id="editSensorOuter">Edit Sensor</div>
+            <div class="btn btn-primary disabled" type="button" onmousedown=MODIFY_SENSOR.displayMainForm(false);
+                 id="addSensorOuter">Add Sensor</div>
+            <div class="btn btn-primary disabled" type="button" onmousedown=ROOM_DETAILS.addOpeningForm();
+                 id="addOpening">Add Opening</div>
+            <div class="btn btn-primary" type="button" onmousedown=ROOM_DETAILS.addRoomForm();
+                 id="addRoom">Add Room</div>
+            <div class="btn btn-primary" type="button" onmousedown=getUriToDisplay();
+                 id="newProject">New Project</div>
+        </div>
+    </div>
+    <div class="row" id="inDepth">
+    </div>
+</div>
+<script type="text/javascript" src="js/graphics.js"></script>
+</body>
+</html>
