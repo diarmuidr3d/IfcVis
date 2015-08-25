@@ -3,7 +3,7 @@
  *          ADAPT Centre,
  *          Trinity College Dublin
  *
- * Last Modified:   21/08/15
+ * Last Modified:   25/08/15
  */
 
 var graph = "http://localhost:8080/fuseki/rdf_stf/data/knoholem_Ifc";
@@ -156,9 +156,6 @@ var addingSensor = false, addingRoom = false, addingOpening = false;
 function onCanvasMouseDown(event) {
     this.clickedRoom = function(room) {
         ROOM_DETAILS.selectRoom(room.uri);
-        //if(ROOM_DETAILS.selected.current == ROOM_DETAILS.selected.last) {
-        //
-        //}
         CONTROLS.addSensor.enable();
         CONTROLS.addOpening.enable();
         room.material.color.setHex(defaultColours.room.highlight);
@@ -345,6 +342,7 @@ function addWallsForRoom (room_uri) {
             '?coord1 ifc:hasNext ?coord2 . ' +
             '?coord2 ifc:hasListContent ?z }';
         var coords = sparql.simpleQuery(query);
+        /* An alternative representation for walls is in the comment below it was removed to allow for variable height*/
         //var x1 = parseFloat(coords[0].x.value);
         //var x2 = parseFloat(coords[1].x.value);
         //var y1 = parseFloat(coords[0].y.value);
@@ -671,19 +669,6 @@ var CAMERA = function (aspectRatio) {
     camera.position.x = 0;
     camera.position.y = 0;
     camera.position.z = 30;
-    //if(!(largeX === parseInt(largeX, 10))) {
-    //    largeX = 10;
-    //}
-    //if(!(smallX === parseInt(smallX, 10))) {
-    //    smallX = -10;
-    //}
-    //if(!(largeY === parseInt(largeY, 10))) {
-    //    largeY = 10;
-    //}
-    //if(!(smallY === parseInt(smallY, 10))) {
-    //    smallY = -10;
-    //}
-    //this.setCameraCoords(largeX, smallX, largeY, smallY);
     this.zoom = {
         default: {x: camera.position.x, y: camera.position.y, z: camera.position.z},
         lastObject: null,
