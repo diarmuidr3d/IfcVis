@@ -200,10 +200,14 @@ function onCanvasMouseDown(event) {
     } else {
         if (intersects.length > 0) {
             var i = 0;
-            while (intersects[i].object.myType != "room") {
-                i++;
+            if(myCam.zoom.out) {
+                while (intersects[i].object.myType != "room") {
+                    i++;
+                }
             }
-            this.clickedRoom(intersects[i].object);
+            if(intersects[i].object.myType == "room") {
+                this.clickedRoom(intersects[i].object);
+            }
             if(intersects[0].object.myType == "sensor") {
                 ROOM_DETAILS.pickSensor(intersects[0].object.uri);
             }
