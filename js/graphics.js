@@ -156,6 +156,9 @@ var addingSensor = false, addingRoom = false, addingOpening = false;
 function onCanvasMouseDown(event) {
     this.clickedRoom = function(room) {
         ROOM_DETAILS.selectRoom(room.uri);
+        //if(ROOM_DETAILS.selected.current == ROOM_DETAILS.selected.last) {
+        //
+        //}
         CONTROLS.addSensor.enable();
         CONTROLS.addOpening.enable();
         room.material.color.setHex(defaultColours.room.highlight);
@@ -203,10 +206,7 @@ function onCanvasMouseDown(event) {
             while (intersects[i].object.myType != "room") {
                 i++;
             }
-            var room = intersects[i].object;
-            if (myCam.zoom.lastObject != room) {
-                this.clickedRoom(room);
-            }
+            this.clickedRoom(intersects[i].object);
             if(intersects[0].object.myType == "sensor") {
                 ROOM_DETAILS.pickSensor(intersects[0].object.uri);
             }
