@@ -177,9 +177,6 @@ function onCanvasMouseDown(event) {
         ROOM_DETAILS.getSensors(room.uri);
     };
 
-    //var vector = new THREE.Vector3(( (event.clientX - planContainer.offsetLeft) / width ) * 2 - 1,
-    //    -( (event.clientY - planContainer.offsetTop) / height ) * 2 + 1, 0.5);
-    //vector = vector.unproject(myCam.cam());
     var direction = getClickedDirection(event);
     var raycaster = new THREE.Raycaster(myCam.cam().position, direction);
     var intersects = raycaster.intersectObjects(objects, true);
@@ -191,15 +188,6 @@ function onCanvasMouseDown(event) {
             clickedWall = intersectsWall[0].object.uri;
         }
     } else if (addingRoom) {
-        //var distance = - myCam.cam().position.z / direction.z;
-        //var position = myCam.cam().position.clone().add(direction.multiplyScalar(distance));
-        //clickedCoords.push([position.x, position.y]);
-        //var clickedPoint = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5),
-        //    new THREE.MeshBasicMaterial({color: 0x1A46D6}));
-        //clickedPoint.position.x = position.x;
-        //clickedPoint.position.y = position.y;
-        //scene.add(clickedPoint);
-        //pointsForAddingRoom.push(clickedPoint);
         document.removeEventListener('mousedown', onCanvasMouseDown, false);
         document.addEventListener('mousemove', onMouseMove, false);
         document.addEventListener('click', onClick, false);
@@ -211,17 +199,15 @@ function onCanvasMouseDown(event) {
         }
     } else {
         if (intersects.length > 0) {
-            if (intersects[0].object.myType == "room") {
-                this.clickedRoom(intersects[0].object);
-            } else {
-                var i = 0;
-                while (intersects[i].object.myType != "room") {
-                    i++;
-                }
-                var room = intersects[i].object;
-                if (myCam.zoom.lastObject != room) {
-                    this.clickedRoom(room);
-                }
+            var i = 0;
+            while (intersects[i].object.myType != "room") {
+                i++;
+            }
+            var room = intersects[i].object;
+            if (myCam.zoom.lastObject != room) {
+                this.clickedRoom(room);
+            }
+            if(intersects[0].object.myType == "sensor") {
                 ROOM_DETAILS.pickSensor(intersects[0].object.uri);
             }
         }
@@ -468,8 +454,7 @@ function drawUprightBox(coords, material) {
     geometry.faces.push(new THREE.Face3(0, 2, 3));
     geometry.faces.push(new THREE.Face3(2, 1, 0));
     geometry.faces.push(new THREE.Face3(3, 2, 0));
-    var mesh = new THREE.Mesh(geometry, material);
-    return mesh;
+    return new THREE.Mesh(geometry, material);
 }
 
 function drawBox(coords) {
