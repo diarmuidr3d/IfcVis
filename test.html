@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r71/three.min.js"></script>
+    <script type="text/javascript" src="js/IfcThree.js"></script>
+</head>
+<body>
+<script>
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.x = 0.5;
+    camera.position.y = 0.5;
+    camera.position.z = 3;
+    var renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    var coords = [
+            new THREE.Vector3(0,0,0),
+            new THREE.Vector3(0,1,0),
+            new THREE.Vector3(1,1,0),
+            new THREE.Vector3(1,0,0)
+//            new THREE.Vector3(0,0,0)
+    ];
+//    var coords = [[0,0],[0,1],[1,2],[1,0],[0,0]];
+    var room = new IfcTHREE.IfcSpace(coords, new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff}));
+    scene.add(room);
+    coords = [
+        new THREE.Vector3(0,0,0),
+        new THREE.Vector3(0,1,0),
+        new THREE.Vector3(0,1,1),
+        new THREE.Vector3(0,0,1)
+    ];
+    var wall = new IfcTHREE.IfcWall(coords, new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff}));
+    room.addWall(wall);
+    scene.add(wall);
+    console.log(room);
+    console.log(wall);
+    function render() {
+        requestAnimationFrame(render);
+        renderer.render(scene, camera);
+    }
+    render();
+</script>
+</body>
+</html>
