@@ -73,18 +73,26 @@ IfcTHREE.IfcWall.prototype = Object.create( THREE.Mesh.prototype );
 IfcTHREE.IfcOpening = Object.create(THREE.Mesh);
 
 IfcTHREE.IfcOpening = function (containingWall, vector3Array, material) {
+    //THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
+    //this.type = 'IfcOpening';
+    //containingWall.addOpening(this);
+    this.construct(containingWall, vector3Array, material);
+};
+IfcTHREE.IfcOpening.prototype = Object.create(THREE.Mesh.prototype);
+IfcTHREE.IfcOpening.prototype.construct = function (containingWall, vector3Array, material) {
     THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
     this.type = 'IfcOpening';
     containingWall.addOpening(this);
 };
-IfcTHREE.IfcOpening.prototype = Object.create(THREE.Mesh.prototype);
 
 IfcTHREE.IfcDoor = function (containingWall, vector3Array, material) {
-    THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
-    IfcTHREE.IfcDoor.type = 'IfcDoor';
-    containingWall.addOpening(this);
+    this.construct(containingWall, vector3Array, material);
+    this.type = "IfcDoor";
 };
 IfcTHREE.IfcDoor.prototype = Object.create(IfcTHREE.IfcOpening.prototype);
 
-IfcTHREE.IfcWindow = Object.create(IfcTHREE.IfcOpening);
-IfcTHREE.IfcDoor.type = 'IfcWindow';
+IfcTHREE.IfcWindow = function (containingWall, vector3Array, material) {
+    this.construct(containingWall, vector3Array, material);
+    this.type = "IfcWindow";
+};
+IfcTHREE.IfcWindow.prototype = Object.create(IfcTHREE.IfcOpening.prototype);
