@@ -35,8 +35,14 @@
     var wall = new IfcTHREE.IfcWall(coords, new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff}));
     room.addWall(wall);
     scene.add(wall);
-    console.log(room);
-    console.log(wall);
+    coords = [
+        new THREE.Vector3(0.01,0.25,0),
+        new THREE.Vector3(0.01,0.75,0),
+        new THREE.Vector3(0.01,0.75,0.75),
+        new THREE.Vector3(0.01,0.25,0.75)
+    ];
+    var door = new IfcTHREE.IfcDoor(wall, coords, new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff}));
+    scene.add(door);
     function render() {
         requestAnimationFrame(render);
         renderer.render(scene, camera);

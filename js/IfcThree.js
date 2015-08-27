@@ -30,10 +30,10 @@ IfcTHREE.polygonGeom = function (vector2Array) {
 };
 
 IfcTHREE.IfcSpace = function(vector3Array, material) {
-    //var coords = vector3Array;
     THREE.Mesh.call( this, IfcTHREE.polygonGeom(vector3Array),  material);
     this.type = 'IfcSpace';
     var walls = [];
+    //var coords = vector3Array;
     //this.createWall = function (height, thickness, side) {
     //    var first = coords[side];
     //    var second;
@@ -69,3 +69,22 @@ IfcTHREE.IfcWall = function (vector3Array, material) {
     };
 };
 IfcTHREE.IfcWall.prototype = Object.create( THREE.Mesh.prototype );
+
+IfcTHREE.IfcOpening = Object.create(THREE.Mesh);
+
+IfcTHREE.IfcOpening = function (containingWall, vector3Array, material) {
+    THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
+    this.type = 'IfcOpening';
+    containingWall.addOpening(this);
+};
+IfcTHREE.IfcOpening.prototype = Object.create(THREE.Mesh.prototype);
+
+IfcTHREE.IfcDoor = function (containingWall, vector3Array, material) {
+    THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
+    IfcTHREE.IfcDoor.type = 'IfcDoor';
+    containingWall.addOpening(this);
+};
+IfcTHREE.IfcDoor.prototype = Object.create(IfcTHREE.IfcOpening.prototype);
+
+IfcTHREE.IfcWindow = Object.create(IfcTHREE.IfcOpening);
+IfcTHREE.IfcDoor.type = 'IfcWindow';
