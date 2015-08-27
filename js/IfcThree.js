@@ -73,9 +73,6 @@ IfcTHREE.IfcWall.prototype = Object.create( THREE.Mesh.prototype );
 IfcTHREE.IfcOpening = Object.create(THREE.Mesh);
 
 IfcTHREE.IfcOpening = function (containingWall, vector3Array, material) {
-    //THREE.Mesh.call( this, IfcTHREE.squareGeom(vector3Array),  material);
-    //this.type = 'IfcOpening';
-    //containingWall.addOpening(this);
     this.construct(containingWall, vector3Array, material);
 };
 IfcTHREE.IfcOpening.prototype = Object.create(THREE.Mesh.prototype);
