@@ -6,7 +6,8 @@
  * Last Modified:   25/08/15
  */
 
-var graph = "http://localhost:8080/fuseki/rdf_stf/data/knoholem_Ifc";
+//var graph = "http://localhost:8080/fuseki/rdf_stf/data/knoholem_Ifc";
+var graph = "http://localhost:8080/fuseki/rdf_stf/data/new";
 var queryEnd = "http://localhost:8080/fuseki/rdf_stf/";
 var updateEnd = "http://localhost:8080/fuseki/rdf_stf/update";
 var sparql = new SPARQL(queryEnd, updateEnd, graph);
@@ -22,8 +23,6 @@ var clickedCoords = [];
 var clickedCoordsForSensor = [];
 var clickedCoordsForWall = [];
 var pointsForAddingRoom = [];
-
-var maxX, maxY, minX, minY;
 
 var width, height = 400;
 
@@ -107,6 +106,7 @@ function newProject(id) {
     scene.add(grid);
     animate_sensors_cart();
     animate_rooms_cart();
+    animate_rooms_ifc();
     document.getElementById(detailsName).innerHTML = "";
     render();
 }
@@ -327,6 +327,56 @@ function animate_rooms_cart() {
     }
 }
 
+function animate_rooms_ifc() {
+    var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
+        'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
+        'SELECT ?room ?coord FROM <'+sparql.getGraph()+'> '+
+        'WHERE { ?room rdf:type ifc:IfcSpace ' +
+        'FILTER(STRSTARTS(STR(?room), "' + DEST_URI + '")) }';
+    var results = sparql.simpleQuery(query);
+    var first_overall = true;
+    for(var i = 0; i < results.length; i++) {
+        var room = new THREE.Shape();
+        var firstRun = true;
+        var roomName = results[i].room.value;
+        query = 'SELECT ?next ?x ?y FROM <'+sparql.getGraph()+'> '+
+            'WHERE { <' + roomName + '> ifc:Representation ?rep . '+
+            '?rep ifc:Representations ?repList . ' +
+            '?repList ifc:hasListContent ?a . '+
+            '?a ifc:Items ?z . '+
+            '?z ifc:Bounds ?s . '+
+            '?s ifc:Bound ?t . '+
+            '?t ifc:Polygon ?ptlist . ' +
+            '{ ?ptlist ifc:hasNext ?next } UNION ' +
+            '{ ?ptlist ifc:hasListContent ?point . ' +
+            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+            '?loop ifc:hasListContent ?x . ' +
+            '?loop ifc:hasNext ?loop2 . ' +
+            '?loop2 ifc:hasListContent ?y } ' +
+            '}';
+        var points = sparql.simpleQuery(query);
+        var coord_results = [];
+        while (points.length > 1) {
+            console.log("looping");
+            var next = points[0]["next"].value;
+            coord_results.push([parseFloat(points[1]["x"].value), parseFloat(points[1]["y"].value)]);
+            query = 'SELECT ?next ?x ?y FROM <'+sparql.getGraph()+'> '+
+                'WHERE { ' +
+                '{ <' + next + '> ifc:hasNext ?next } UNION ' +
+                '{ <' + next + '> ifc:hasListContent ?point . ' +
+                '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+                '?loop ifc:hasListContent ?x . ' +
+                '?loop ifc:hasNext ?loop2 . ' +
+                '?loop2 ifc:hasListContent ?y } ' +
+                '}';
+            points = sparql.simpleQuery(query);
+        }
+        coord_results.push([parseFloat(points[0]["x"].value), parseFloat(points[0]["y"].value)]);
+        addRoom(roomName, coord_results);
+        addWallsForRoom(roomName);
+    }
+}
+
 var wallMaterial = new THREE.MeshBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.2});
 var openingMaterial = new THREE.MeshBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.2});
 
@@ -481,71 +531,6 @@ function addRoom(uri, coordinates) {
     edge.material.linewidth = 2;
     scene.add( edge );
 }
-
-//function animate_rooms_ifc() {
-//    var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
-//            'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
-//            'SELECT ?room ?coord FROM <'+SPARQL_GRAPH+'> '+
-//            'WHERE { ?room rdf:type ifc:IfcSpace }';
-//    var results = sparql_query(query);
-//    var first_overall = true;
-//    for(var i = 0; i < results.results.bindings.length; i++) {
-//        var room = new THREE.Shape();
-//        var firstRun = true;
-//        var roomName = results.results.bindings[i].room.value;
-//        query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
-//            'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
-//            'SELECT ?room ?xcoord ?ycoord FROM <'+SPARQL_GRAPH+'> '+
-//            'WHERE { <'+roomName+'> ifc:Representation ?x . '+
-//            '?x ifc:Representations ?y . ' +
-//            '?y ifc:hasListContent ?a . '+
-//            '?a ifc:Items ?z . '+
-//            '?z ifc:Bounds ?s . '+
-//            '?s ifc:Bound ?t . '+
-//            '?t ifc:Polygon ?u . '+
-//            '?u ifc:Coordinates_of_IfcCartesianPoint ?v . ' +
-//            '?v ifc:hasNext ?w . ' +
-//            '?v ifc:hasListContent ?xcoord . ' +
-//            '?w ifc:hasListContent ?ycoord ' +
-//            '}';
-//        var coord_results = sparql_query(query);
-//        for(var j = 0; j < coord_results.results.bindings.length; j++) {
-//            var xcoord = parseFloat(coord_results.results.bindings[j].xcoord.value);
-//            var ycoord = parseFloat(coord_results.results.bindings[j].ycoord.value);
-//            if (first_overall) {
-//                maxX = xcoord;
-//                minX = xcoord;
-//                maxY = ycoord;
-//                minY = ycoord;
-//                first_overall = false;
-//            }
-//            if (firstRun) {
-//                room.moveTo(xcoord, ycoord);
-//                firstRun = false;
-//            } else {
-//                room.lineTo(xcoord, ycoord);
-//                if (xcoord > maxX) {
-//                    maxX = xcoord;
-//                } else if (xcoord < minX) {
-//                    minX = xcoord;
-//                }
-//                if (ycoord > maxY) {
-//                    maxY = ycoord;
-//                } else if (ycoord < minY) {
-//                    minY = ycoord;
-//                }
-//            }
-//        }
-//        var roomGeom = new THREE.ShapeGeometry(room);
-//        var roomMesh = new THREE.Mesh( roomGeom, new THREE.MeshBasicMaterial({color: Math.random() * 0xffffff}) );
-//        scene.add(roomMesh);
-//        rooms.push(roomMesh);
-//    }
-//    var coords = get_camera_coords(maxX, minX, maxY, minY);
-//	camera.position.x = coords.x;
-//	camera.position.y = coords.y;
-//    camera.position.z = coords.z;
-//}
 
 var CAMERA = function (aspectRatio) {
 

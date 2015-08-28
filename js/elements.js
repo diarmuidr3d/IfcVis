@@ -434,6 +434,110 @@ ROOM_DETAILS.addRoomForm = function (){
         'Add</button></form>';
 };
 
+//ROOM_DETAILS.addRoom = function () {
+//    this.addFace = function (coord1, coord2) {
+//        coord1.push(0);
+//        coord2.push(0);
+//        var coord3 = [coord2[0], coord2[1], ROOM_DETAILS.HEIGHT_OF_NEW_WALL];
+//        var coord4 = [coord1[0], coord1[1], ROOM_DETAILS.HEIGHT_OF_NEW_WALL];
+//        var pointList1 = this.addCorner(coord1, 0);
+//        var pointList2 = this.addCorner(coord2, 1);
+//        var pointList3 = this.addCorner(coord3, 2);
+//        var pointList4 = this.addCorner(coord4, 3);
+//        query += '<' + pointList1 + '> ifc:hasNext <' + pointList2 + '> . ' +
+//            '<' + pointList2 + '> ifc:hasNext <' + pointList3 + '> . ' +
+//            '<' + pointList3 + '> ifc:hasNext <' + pointList4 + '> . ' +
+//            '<' + pointList4 + '> ifc:hasNext <' + pointList1 + '> . ';
+//    };
+//    this.addCorner = function (coord, counter) {
+//        var pointList = thisBoundary + "_points_" + counter;
+//        query += '<' + pointList + '> rdf:type ifc:IfcCartesianPoint_List . ' +
+//            '<' + thisLine + '> ifc:Points <' + pointList + '> . ';
+//        var point = thisBoundary + "_point_" + counter;
+//        query += '<' + point + '> rdf:type ifc:IfcCartesianPoint . ' +
+//            '<' + pointList + '> ifc:hasListContent <' + point + '> . ';
+//        var xcoord = point + "_x";
+//        this.createCoordList(coord[0], xcoord);
+//        var ycoord = point + "_y";
+//        this.createCoordList(coord[1], ycoord);
+//        var zcoord = point + "_z";
+//        this.createCoordList(coord[2], zcoord);
+//        query += '<' + point + '> ifc:Coordinates <' + xcoord + '> . ' +
+//            '<' + xcoord + '> ifc:hasNext <' + ycoord + '> . ' +
+//            '<' + ycoord + '> ifc:hasNext <' + zcoord + '> . ';
+//        return pointList;
+//    };
+//    this.createCoordList = function (coordVal, name) {
+//        query += '<' + name + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+//            '<' + name + '> ifc:hasListContent "' + coordVal + '"^^ifc:IfcLengthMeasure . '
+//    };
+//
+//    var form = document.getElementById("newRoom");
+//    var name = form.elements[0].value;
+//    var uri = DEST_URI + name;
+//    var point_list_uri = DEST_URI + "coords_of_" + name;
+//    var point_uri = DEST_URI + name + "_point_";
+//    var containerUri = DEST_URI + "contained_in_" + name;
+//    var boundaryUri = uri + "_boundary";
+//    if (clickedCoords.length > 2) {
+//        clickedCoords.push([clickedCoords[0][0], clickedCoords[0][1]]);
+//        var query = 'WITH <' + sparql.getGraph() + '> DELETE {} INSERT {' +
+//            '<'+uri+'> rdf:type ifc:IfcSpace . ' +
+//            '<'+uri+'> rdfs:label "'+name+'" . ' +
+//            '<'+point_list_uri+'> rdf:type cart:Point_List . ' +
+//            '<'+uri+'> cart:hasPlacement <'+point_list_uri+'> . ' +
+//            '<'+containerUri+'> rdf:type ifc:IfcRelContainedInSpatialStructure . ' +
+//            '<'+containerUri+'> ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <'+uri+'> . ' +
+//            '<'+boundaryUri+'> rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
+//            '<'+boundaryUri+'> ifc:RelatingSpace <'+uri+'> . ';
+//        for(var i = 0; i < clickedCoords.length; i++) {
+//            var thisPoint = point_uri + i;
+//            query += '<'+thisPoint+'> rdf:type cart:Point . ' +
+//                '<'+point_list_uri+'> cart:hasPoint <'+thisPoint+'> . ' +
+//                '<'+thisPoint+'> cart:xcoord '+ clickedCoords[i][0] + ' . ' +
+//                '<'+thisPoint+'> cart:ycoord '+ clickedCoords[i][1] + ' . ';
+//            if(i != clickedCoords.length - 1) {
+//                var thisWall = uri + "_wall_" + i;
+//                query += '<'+thisWall+'> rdf:type ifc:IfcWallStandardCase . ' +
+//                    '<'+containerUri+'> ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <'+thisWall+'> . ';
+//                var thisBoundary = boundaryUri + "_" + i;
+//                query += '<'+thisBoundary+'> rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
+//                    '<'+thisBoundary+'> ifc:RelatedBuildingElement <'+thisWall+'> . ' +
+//                    '<'+boundaryUri+'> ifc:InnerBoundaries <'+thisBoundary+'> . ' +
+//                    '<'+thisBoundary+'> ifc:ParentBoundary <'+boundaryUri+'> . ';
+//                var connectionGeom = thisBoundary + "_csg";
+//                query += '<'+connectionGeom+'> rdf:type ifc:IfcConnectionSurfaceGeometry . ' +
+//                    '<'+thisBoundary+'> ifc:ConnectionGeometry <'+connectionGeom+'> . ';
+//                var thisPlane = thisBoundary + '_cbp';
+//                query += '<'+thisPlane+'> rdf:type ifc:IfcCurveBoundedPlane . ' +
+//                    '<'+connectionGeom+'> ifc:SurfaceOnRelatingElement <'+thisPlane+'> . ';
+//                var thisLine = thisBoundary + "_line";
+//                query += '<'+thisLine+'> rdf:type ifc:IfcPolyline . ' +
+//                    '<'+thisPlane+'> ifc:OuterBoundary <'+thisLine+'> . ';
+//                this.addFace(clickedCoords[i], clickedCoords[i+1]);
+//            }
+//        }
+//        query += " } WHERE {} ";
+//        sparql.runUpdate(query);
+//        addRoom(uri, clickedCoords);
+//        clickedCoords = [];
+//        clickedCoordsForSensor = [];
+//        scene.remove(addedObj);
+//        for(var j = 0; j < pointsForAddingRoom.length; j++) {
+//            scene.remove(pointsForAddingRoom[j]);
+//        }
+//        addingRoom = false;
+//        ROOM_DETAILS.getSensors(uri);
+//        addWallsForRoom(uri);
+//    } else {
+//        ROOM_DETAILS.container.innerHTML = '<div class="alert alert-info"> ' +
+//            '<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>' +
+//            '<strong>Please add coordinates.</strong> Click on the points on the diagram at which you would like ' +
+//            'the room corners, then press "Add" again. You must start and finish at the same point</div>' +
+//            ROOM_DETAILS.container.innerHTML;
+//    }
+//};
+
 ROOM_DETAILS.addRoom = function () {
     this.addFace = function (coord1, coord2) {
         coord1.push(0);
@@ -475,8 +579,13 @@ ROOM_DETAILS.addRoom = function () {
     var form = document.getElementById("newRoom");
     var name = form.elements[0].value;
     var uri = DEST_URI + name;
-    var point_list_uri = DEST_URI + "coords_of_" + name;
-    var point_uri = DEST_URI + name + "_point_";
+    var reps_uri = uri + "_rep";
+    var rep_list_uri = reps_uri + "_list";
+    var shape_rep = uri + "_shape";
+    var faceUri = shape_rep + "_face";
+    var faceBoundUri = faceUri + "_bound";
+    var polyUri = uri + "_polyLoop";
+    var pointListUri = polyUri + "_ptlist_";
     var containerUri = DEST_URI + "contained_in_" + name;
     var boundaryUri = uri + "_boundary";
     if (clickedCoords.length > 2) {
@@ -484,20 +593,43 @@ ROOM_DETAILS.addRoom = function () {
         var query = 'WITH <' + sparql.getGraph() + '> DELETE {} INSERT {' +
             '<'+uri+'> rdf:type ifc:IfcSpace . ' +
             '<'+uri+'> rdfs:label "'+name+'" . ' +
-            '<'+point_list_uri+'> rdf:type cart:Point_List . ' +
-            '<'+uri+'> cart:hasPlacement <'+point_list_uri+'> . ' +
+            '<'+ reps_uri + '> rdf:type ifc:IfcProductDefinitionShape . ' +
+            '<' + uri + '> ifc:Representation <'+ reps_uri + '> . ' +
+            '<' + rep_list_uri + '> rdf:type ifc:IfcRepresentation_List . ' +
+            '<'+ reps_uri + '> ifc:Representations <' + rep_list_uri + '> . ' +
+            '<'+ shape_rep + '> rdf:type ifc:IfcShapeRepresentation . ' +
+            '<' + rep_list_uri + '> ifc:hasListContent <'+ shape_rep + '> . ' +
+            '<' + faceUri + '> rdf:type ifc:IfcFace . ' +
+            '<'+ shape_rep + '> ifc:Items <'+ faceUri + '> . ' +
+            '<' + faceBoundUri + '> rdf:type ifc:IfcFaceBound . ' +
+            '<'+ faceUri + '> ifc:Bounds <' + faceBoundUri + '> . ' +
+            '<' + polyUri + '> rdf:type ifc:IfcPolyLoop . ' +
+            '<' + faceBoundUri + '> ifc:Bound <' + polyUri + '> . ' +
             '<'+containerUri+'> rdf:type ifc:IfcRelContainedInSpatialStructure . ' +
             '<'+containerUri+'> ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <'+uri+'> . ' +
             '<'+boundaryUri+'> rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
             '<'+boundaryUri+'> ifc:RelatingSpace <'+uri+'> . ';
         for(var i = 0; i < clickedCoords.length; i++) {
-            var thisPoint = point_uri + i;
-            query += '<'+thisPoint+'> rdf:type cart:Point . ' +
-                '<'+point_list_uri+'> cart:hasPoint <'+thisPoint+'> . ' +
-                '<'+thisPoint+'> cart:xcoord '+ clickedCoords[i][0] + ' . ' +
-                '<'+thisPoint+'> cart:ycoord '+ clickedCoords[i][1] + ' . ';
+            var thisPointListUri = pointListUri + i;
+            var pointUri = thisPointListUri + "_point";
+            var xPoint = pointUri + '_x';
+            var yPoint = pointUri + '_y';
+            if (i == 0) {
+                query += '<' + polyUri + '> ifc:Polygon <' + thisPointListUri + '> . ';
+            }
+            query += '<' + thisPointListUri + '> rdf:type ifc:IfcCartesianPoint_List . ' +
+                '<' + pointUri + '> rdf:type ifc:IfcCartesianPoint . ' +
+                '<' + thisPointListUri + '> ifc:hasListContent <' + pointUri + '> . ' +
+                '<' + pointUri + '> ifc:Coordinates_of_IfcCartesianPoint <' + xPoint + '> . ' +
+                '<' + xPoint + '> rdf:type ifc:IfcLengthMeasureList . ' +
+                '<' + xPoint + '> ifc:hasListContent "' + clickedCoords[i][0] + '"^^ifc:IfcLengthMeasure . ' +
+                '<' + xPoint + '> ifc:hasNext <' + yPoint + '> . ' +
+                '<' + yPoint + '> rdf:type ifc:IfcLengthMeasureList . ' +
+                '<' + yPoint + '> ifc:hasListContent "' + clickedCoords[i][1] + '"^^ifc:IfcLengthMeasure . ';
             if(i != clickedCoords.length - 1) {
                 var thisWall = uri + "_wall_" + i;
+                var nextPointListUri = pointListUri + (i + 1);
+                query += '<' + thisPointListUri + '> ifc:hasNext <' + nextPointListUri + '> . ';
                 query += '<'+thisWall+'> rdf:type ifc:IfcWallStandardCase . ' +
                     '<'+containerUri+'> ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <'+thisWall+'> . ';
                 var thisBoundary = boundaryUri + "_" + i;
@@ -548,8 +680,8 @@ ROOM_DETAILS.addOpeningForm = function () {
         '<label class="radio inline control-label">Opening Type:</label> ' +
         '<label class="radio-inline"><input type="radio" name="optradio">Door</label> ' +
         '<label class="radio-inline"><input type="radio" name="optradio">Window</label> ' +
-        '</div> ' +
-        '</div><button type="submit" class="btn btn-default" onClick=ROOM_DETAILS.addOpeningTypeForm(); >Add</button></form>';
+        '</div></div>' +
+        '<button type="submit" class="btn btn-default" onClick=ROOM_DETAILS.addOpeningTypeForm(); >Add</button></form>';
 };
 
 ROOM_DETAILS.openingFormData = {};
