@@ -105,9 +105,10 @@ function newProject(id) {
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
     animate_sensors_cart();
-    animate_rooms_cart();
-    animate_rooms_ifc();
+    //animate_rooms_cart();
+    animate_rooms();
     document.getElementById(detailsName).innerHTML = "";
+    console.log(myCam.cam());
     render();
 }
 
@@ -303,76 +304,112 @@ function addSensor (uri, x, y) {
     objects.push(sensor);
 }
 
-function animate_rooms_cart() {
-    var query = 'SELECT ?space ?x ?y ' +
-        'FROM <' + sparql.getGraph() + '> ' +
-        'WHERE { ?space rdf:type ifc:IfcSpace .' +
-        '?space cart:hasPlacement ?pos . ' +
-        '?pos cart:hasPoint ?point . ' +
-        '?point cart:xcoord ?x . ' +
-        '?point cart:ycoord ?y . ' +
-        'FILTER(STRSTARTS(STR(?space), "' + DEST_URI + '"))' +
-        '} ';
-    var results = sparql.simpleQuery(query);
-    for(var i = 0; i < results.length; i++) {
-        var room_name = results[i]["space"].value;
-        var coordinates = [];
-        while ((i < results.length) && (room_name == results[i]["space"].value)) {
-            coordinates.push([parseFloat(results[i].x.value), parseFloat(results[i].y.value)]);
-            i++;
-        }
-        addRoom(room_name, coordinates);
-        addWallsForRoom(room_name);
-        i--;
-    }
-}
+/*
+This function is to be removed :)
+ */
+//function animate_rooms_cart() {
+//    var query = 'SELECT ?space ?x ?y ' +
+//        'FROM <' + sparql.getGraph() + '> ' +
+//        'WHERE { ?space rdf:type ifc:IfcSpace .' +
+//        '?space cart:hasPlacement ?pos . ' +
+//        '?pos cart:hasPoint ?point . ' +
+//        '?point cart:xcoord ?x . ' +
+//        '?point cart:ycoord ?y . ' +
+//        'FILTER(STRSTARTS(STR(?space), "' + DEST_URI + '"))' +
+//        '} ';
+//    var results = sparql.simpleQuery(query);
+//    for(var i = 0; i < results.length; i++) {
+//        var room_name = results[i]["space"].value;
+//        var coordinates = [];
+//        while ((i < results.length) && (room_name == results[i]["space"].value)) {
+//            coordinates.push([parseFloat(results[i].x.value), parseFloat(results[i].y.value)]);
+//            i++;
+//        }
+//        addRoom(room_name, coordinates);
+//        addWallsForRoom(room_name);
+//        i--;
+//    }
+//}
 
-function animate_rooms_ifc() {
+function animate_rooms() {
     var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
         'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
         'SELECT ?room ?coord FROM <'+sparql.getGraph()+'> '+
         'WHERE { ?room rdf:type ifc:IfcSpace ' +
         'FILTER(STRSTARTS(STR(?room), "' + DEST_URI + '")) }';
     var results = sparql.simpleQuery(query);
-    var first_overall = true;
     for(var i = 0; i < results.length; i++) {
         var room = new THREE.Shape();
-        var firstRun = true;
         var roomName = results[i].room.value;
         query = 'SELECT ?next ?x ?y FROM <'+sparql.getGraph()+'> '+
-            'WHERE { <' + roomName + '> ifc:Representation ?rep . '+
+            'WHERE { ' +
+            '<' + roomName + '> ifc:Representation ?rep . '+
             '?rep ifc:Representations ?repList . ' +
             '?repList ifc:hasListContent ?a . '+
             '?a ifc:Items ?z . '+
-            '?z ifc:Bounds ?s . '+
-            '?s ifc:Bound ?t . '+
-            '?t ifc:Polygon ?ptlist . ' +
-            '{ ?ptlist ifc:hasNext ?next } UNION ' +
-            '{ ?ptlist ifc:hasListContent ?point . ' +
-            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-            '?loop ifc:hasListContent ?x . ' +
-            '?loop ifc:hasNext ?loop2 . ' +
-            '?loop2 ifc:hasListContent ?y } ' +
-            '}';
-        var points = sparql.simpleQuery(query);
-        var coord_results = [];
-        while (points.length > 1) {
-            console.log("looping");
-            var next = points[0]["next"].value;
-            coord_results.push([parseFloat(points[1]["x"].value), parseFloat(points[1]["y"].value)]);
-            query = 'SELECT ?next ?x ?y FROM <'+sparql.getGraph()+'> '+
-                'WHERE { ' +
-                '{ <' + next + '> ifc:hasNext ?next } UNION ' +
-                '{ <' + next + '> ifc:hasListContent ?point . ' +
+            '{ ' +
+                '?z ifc:Bounds ?s . '+
+                '?s ifc:Bound ?t . '+
+                '?t ifc:Polygon ?ptlist . ' +
+                '{ ?ptlist ifc:hasNext ?next } ' +
+                'UNION ' +
+                '{ ?ptlist ifc:hasListContent ?point . ' +
                 '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
                 '?loop ifc:hasListContent ?x . ' +
                 '?loop ifc:hasNext ?loop2 . ' +
                 '?loop2 ifc:hasListContent ?y } ' +
-                '}';
-            points = sparql.simpleQuery(query);
+            '} UNION { ' +
+                '?z ifc:SweptArea ?area . ' +
+                '?area ifc:OuterCurve ?line . ' +
+                '?line ifc:Points ?ptlist . ' +
+                '{ ?ptlist ifc:isFollowedBy ?next } ' +
+                'UNION ' +
+                '{ ?ptlist ifc:hasListContent ?point . ' +
+                '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+                '?loop ifc:hasListContent ?coordx . ' +
+                '?coordx ifc:has_double ?x . ' +
+                '?loop ifc:isFollowedBy ?loop2 . ' +
+                '?loop2 ifc:hasListContent ?coordy . ' +
+                '?coordy ifc:has_double ?y } ' +
+            '}}';
+        var points = sparql.simpleQuery(query);
+            var coord_results = [];
+            while (points.length > 1) {
+                console.log("looping");
+                var next = points[0]["next"].value;
+                coord_results.push([parseFloat(points[1]["x"].value), parseFloat(points[1]["y"].value)]);
+                query = 'SELECT ?next ?x ?y FROM <' + sparql.getGraph() + '> ' +
+                    'WHERE { ' +
+                    '{ ' +
+                        '{ <' + next + '> ifc:hasNext ?next } UNION { <' + next + '> ifc:isFollowedBy ?next }' +
+                    '} UNION { ' +
+                        '{ ' +
+                            '<' + next + '> ifc:hasListContent ?point . ' +
+                            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+                            '?loop ifc:hasListContent ?x . ' +
+                            '?loop ifc:hasNext ?loop2 . ' +
+                            '?loop2 ifc:hasListContent ?y ' +
+                        '} UNION { ' +
+                            '<' + next + '> ifc:hasListContent ?point . ' +
+                            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+                            '?loop ifc:hasListContent ?coordx . ' +
+                            '?coordx ifc:has_double ?x . ' +
+                            '?loop ifc:isFollowedBy ?loop2 . ' +
+                            '?loop2 ifc:hasListContent ?coordy . ' +
+                            '?coordy ifc:has_double ?y } ' +
+                        '} ' +
+                    ' ' +
+                    '}';
+                points = sparql.simpleQuery(query);
+            }
+        if(points.length > 0) {
+            coord_results.push([parseFloat(points[0]["x"].value), parseFloat(points[0]["y"].value)]);
         }
-        coord_results.push([parseFloat(points[0]["x"].value), parseFloat(points[0]["y"].value)]);
-        addRoom(roomName, coord_results);
+        if(coord_results.length > 0) {
+            console.log("addingRoom");
+            console.log(coord_results);
+            addRoom(roomName, coord_results);
+        }
         addWallsForRoom(roomName);
     }
 }
@@ -654,7 +691,7 @@ var CAMERA = function (aspectRatio) {
         this.zoom.destination.z = coords.z;
     };
 
-    var camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 1000 );
+    var camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 8000 );
     camera.position.x = 0;
     camera.position.y = 0;
     camera.position.z = 30;
