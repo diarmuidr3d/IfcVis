@@ -2,8 +2,6 @@
  * Author:  Diarmuid Ryan
  *          ADAPT Centre,
  *          Trinity College Dublin
- *
- * Last Modified:   21/08/15
  */
 
 
@@ -166,17 +164,16 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                 return result.length != 0;
             };
             this.createSensorAsset = function (sensorUri) {
-                var query = 'WITH <' + sparql.getGraph() + '> \
-        DELETE {} \
-        INSERT { \
-            <' + sensorUri + '_asset_assign> rdf:type ifc:IfcRelAssignsToGroup . \
-            <' + sensorUri + '> ifc:HasAssignments <' + sensorUri + '_asset_assign> . \
-            <' + sensorUri + '_asset> rdf:type ifc:IfcAsset . \
-            <' + sensorUri + '_asset_assign> ifc:RelatingGroup <' + sensorUri + '_asset> . \
-            <' + sensorUri + '_asset> ifc:currentValue_of_IfcAsset 0 .  \
-        } \
-        WHERE {} \
-        ';
+                var query = 'WITH <' + sparql.getGraph() + '> ' +
+                    'DELETE {} ' +
+                    'INSERT { ' +
+                        '<' + sensorUri + '_asset_assign> rdf:type ifc:IfcRelAssignsToGroup . ' +
+                        '<' + sensorUri + '> ifc:HasAssignments <' + sensorUri + '_asset_assign> . ' +
+                        '<' + sensorUri + '_asset> rdf:type ifc:IfcAsset . ' +
+                        '<' + sensorUri + '_asset_assign> ifc:RelatingGroup <' + sensorUri + '_asset> . ' +
+                        '<' + sensorUri + '_asset> ifc:currentValue_of_IfcAsset 0 .  ' +
+                    '} ' +
+                    'WHERE {} ';
                 console.log(sensorUri + " doesn't already have asset relations, adding them.");
                 sparql.runUpdate(query);
             };
@@ -190,16 +187,28 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                 return result.length != 0;
             };
             this.createSensorCoord = function (sensorUri) {
-                var query = 'WITH <' + sparql.getGraph() + '> \
-        DELETE {} \
-        INSERT { \
-            <' + sensorUri + '_point> rdf:type cart:Point . \
-            <' + sensorUri + '> cart:hasPlacement <' + sensorUri + '_point> . \
-            <' + sensorUri + '_point> cart:xcoord "" . \
-            <' + sensorUri + '_point> cart:ycoord "" . \
-        } \
-        WHERE {} \
-        ';
+                var placementUri = sensorUri + '_place';
+                var axisPlaceUri = sensorUri + '_axisPlace';
+                var pointUri = sensorUri + '_point';
+                var xcoord = pointUri + '_x_list';
+                var ycoord = pointUri + '_y_list';
+                var query = 'WITH <' + sparql.getGraph() + '>' +
+                    'DELETE {} ' +
+                    'INSERT { ' +
+                        '<' + placementUri + '> rdf:type ifc:IfcLocalPlacement . ' +
+                        '<' + sensorUri + '> ifc:ObjectPlacement <' + placementUri + '> . ' +
+                        '<' + placementUri + '> ifc:RelativePlacement <' + axisPlaceUri + '> . ' +
+                        '<' + axisPlaceUri + '> rdf:type ifc:IfcAxis2Placement3D . ' +
+                        '<' + axisPlaceUri + '> ifc:Location <' + pointUri + '> . ' +
+                        '<' + pointUri + '> rdf:type ifc:IfcCartesianPoint . ' +
+                        '<' + pointUri + '> ifc:Coordinates <' + xcoord + '> . ' +
+                        '<' + xcoord + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+                        '<' + xcoord + '> ifc:hasListContent "" . ' +
+                        '<' + xcoord + '> ifc:hasNext <' + ycoord + '> . ' +
+                        '<' + ycoord + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+                        '<' + ycoord + '> ifc:hasListContent "" . ' +
+                    '}' +
+                    'WHERE {}';
                 console.log(sensorUri + " doesn't already have coordinate relations, adding them.");
                 sparql.runUpdate(query);
             };
@@ -217,39 +226,44 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
             if(!this.checkIfSensorHasCoordSetup(sensorUri)) {
                 this.createSensorCoord(sensorUri);
             }
-            var query = 'WITH <' + sparql.getGraph() + '> \
-        DELETE { \
-            <' + sensorUri + '> rdf:type ?oldType . \
-            <' + sensorUri + '> ifc:PredefinedType_of_IfcSensor ?enumTypeA . \
-            <' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB . \
-            ?asset ifc:currentValue_of_IfcAsset ?assetVal . \
-            <' + sensorUri + '> rdfs:label ?oldLabel . \
-            ?placement cart:xcoord ?x . \
-            ?placement cart:ycoord ?y . \
-        } \
-        INSERT { \
-            <' + sensorUri + '> rdf:type ifc:' + formData.type + ' . \
-            <' + sensorUri + '> ifc:PredefinedType_of_' + formData.type + " ifc:" + typeEnum + ' . \
-            <' + sensorUri + '> rdfs:label "' + formData.name + '" . \
-            ?asset ifc:currentValue_of_IfcAsset ' + formData.value + ' . \
-            ?container ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <' + sensorUri + '> . \
-            ?placement cart:xcoord ' + formData.coords.x + ' . \
-            ?placement cart:ycoord ' + formData.coords.y + ' . \
-        } \
-        WHERE { \
-            OPTIONAL { <' + sensorUri + '> cart:hasPlacement ?placement . \
-                ?placement cart:xcoord ?x . \
-                ?placement cart:ycoord ?y \
-            } . \
-            OPTIONAL { <' + sensorUri + '> rdf:type ?oldType } . \
-            OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcSensor ?enumTypeA } . \
-            OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB } . \
-            OPTIONAL { <' + sensorUri + '> ifc:HasAssignments ?rag . \
-                ?rag ifc:RelatingGroup ?asset . \
-                ?asset ifc:currentValue_of_IfcAsset ?assetVal \
-            } . \
-            ?container ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <' + myCam.zoom.lastObject.uri + '> . \
-        }';
+            var query = 'WITH <' + sparql.getGraph() + '> ' +
+                'DELETE { ' +
+                    '<' + sensorUri + '> rdf:type ?oldType . ' +
+                    '<' + sensorUri + '> ifc:PredefinedType_of_IfcSensor ?enumTypeA . ' +
+                    '<' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB . ' +
+                    '?asset ifc:currentValue_of_IfcAsset ?assetVal . ' +
+                    '<' + sensorUri + '> rdfs:label ?oldLabel . ' +
+                    '?xcoord ifc:hasListContent ?x . ' +
+                    '?ycoord ifc:hasListContent ?y . ' +
+                '} ' +
+                'INSERT { ' +
+                    '<' + sensorUri + '> rdf:type ifc:' + formData.type + ' . ' +
+                    '<' + sensorUri + '> ifc:PredefinedType_of_' + formData.type + " ifc:" + typeEnum + ' . ' +
+                    '<' + sensorUri + '> rdfs:label "' + formData.name + '" . ' +
+                    '?asset ifc:currentValue_of_IfcAsset ' + formData.value + ' . ' +
+                    '?container ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <' + sensorUri + '> . ' +
+                    '?xcoord ifc:hasListContent "' + formData.coords.x + '"^^ifc:IfcLengthMeasure . ' +
+                    '?ycoord ifc:hasListContent "' + formData.coords.y + '"^^ifc:IfcLengthMeasure . ' +
+                '} ' +
+                'WHERE { ' +
+                    'OPTIONAL { ' +
+                        '<' + sensorUri + '> ifc:ObjectPlacement ?placement . ' +
+                        '?placement ifc:RelativePlacement ?relPlace . ' +
+                        '?relPlace ifc:Location ?pointList . ' +
+                        '?pointList ifc:Coordinates ?xcoord . ' +
+                        '?xcoord ifc:hasListContent ?x . ' +
+                        '?xcoord ifc:hasNext ?ycoord . ' +
+                        '?ycoord ifc:hasListContent ?y . ' +
+                    '} . ' +
+                    'OPTIONAL { <' + sensorUri + '> rdf:type ?oldType } . ' +
+                    'OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcSensor ?enumTypeA } . ' +
+                    'OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB } . ' +
+                    'OPTIONAL { <' + sensorUri + '> ifc:HasAssignments ?rag . ' +
+                        '?rag ifc:RelatingGroup ?asset . ' +
+                        '?asset ifc:currentValue_of_IfcAsset ?assetVal ' +
+                    '} . ' +
+                    '?container ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <' + myCam.zoom.lastObject.uri + '> . ' +
+                '}';
             sparql.runUpdate(query);
             scene.remove(sensors_dict[sensorUri]);
             addSensor(sensorUri, formData.coords.x, formData.coords.y);
@@ -433,110 +447,6 @@ ROOM_DETAILS.addRoomForm = function (){
         '</div><button type="submit" class="btn btn-default" onClick=ROOM_DETAILS.addRoom(); >' +
         'Add</button></form>';
 };
-
-//ROOM_DETAILS.addRoom = function () {
-//    this.addFace = function (coord1, coord2) {
-//        coord1.push(0);
-//        coord2.push(0);
-//        var coord3 = [coord2[0], coord2[1], ROOM_DETAILS.HEIGHT_OF_NEW_WALL];
-//        var coord4 = [coord1[0], coord1[1], ROOM_DETAILS.HEIGHT_OF_NEW_WALL];
-//        var pointList1 = this.addCorner(coord1, 0);
-//        var pointList2 = this.addCorner(coord2, 1);
-//        var pointList3 = this.addCorner(coord3, 2);
-//        var pointList4 = this.addCorner(coord4, 3);
-//        query += '<' + pointList1 + '> ifc:hasNext <' + pointList2 + '> . ' +
-//            '<' + pointList2 + '> ifc:hasNext <' + pointList3 + '> . ' +
-//            '<' + pointList3 + '> ifc:hasNext <' + pointList4 + '> . ' +
-//            '<' + pointList4 + '> ifc:hasNext <' + pointList1 + '> . ';
-//    };
-//    this.addCorner = function (coord, counter) {
-//        var pointList = thisBoundary + "_points_" + counter;
-//        query += '<' + pointList + '> rdf:type ifc:IfcCartesianPoint_List . ' +
-//            '<' + thisLine + '> ifc:Points <' + pointList + '> . ';
-//        var point = thisBoundary + "_point_" + counter;
-//        query += '<' + point + '> rdf:type ifc:IfcCartesianPoint . ' +
-//            '<' + pointList + '> ifc:hasListContent <' + point + '> . ';
-//        var xcoord = point + "_x";
-//        this.createCoordList(coord[0], xcoord);
-//        var ycoord = point + "_y";
-//        this.createCoordList(coord[1], ycoord);
-//        var zcoord = point + "_z";
-//        this.createCoordList(coord[2], zcoord);
-//        query += '<' + point + '> ifc:Coordinates <' + xcoord + '> . ' +
-//            '<' + xcoord + '> ifc:hasNext <' + ycoord + '> . ' +
-//            '<' + ycoord + '> ifc:hasNext <' + zcoord + '> . ';
-//        return pointList;
-//    };
-//    this.createCoordList = function (coordVal, name) {
-//        query += '<' + name + '> rdf:type ifc:IfcLengthMeasure_List . ' +
-//            '<' + name + '> ifc:hasListContent "' + coordVal + '"^^ifc:IfcLengthMeasure . '
-//    };
-//
-//    var form = document.getElementById("newRoom");
-//    var name = form.elements[0].value;
-//    var uri = DEST_URI + name;
-//    var point_list_uri = DEST_URI + "coords_of_" + name;
-//    var point_uri = DEST_URI + name + "_point_";
-//    var containerUri = DEST_URI + "contained_in_" + name;
-//    var boundaryUri = uri + "_boundary";
-//    if (clickedCoords.length > 2) {
-//        clickedCoords.push([clickedCoords[0][0], clickedCoords[0][1]]);
-//        var query = 'WITH <' + sparql.getGraph() + '> DELETE {} INSERT {' +
-//            '<'+uri+'> rdf:type ifc:IfcSpace . ' +
-//            '<'+uri+'> rdfs:label "'+name+'" . ' +
-//            '<'+point_list_uri+'> rdf:type cart:Point_List . ' +
-//            '<'+uri+'> cart:hasPlacement <'+point_list_uri+'> . ' +
-//            '<'+containerUri+'> rdf:type ifc:IfcRelContainedInSpatialStructure . ' +
-//            '<'+containerUri+'> ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <'+uri+'> . ' +
-//            '<'+boundaryUri+'> rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
-//            '<'+boundaryUri+'> ifc:RelatingSpace <'+uri+'> . ';
-//        for(var i = 0; i < clickedCoords.length; i++) {
-//            var thisPoint = point_uri + i;
-//            query += '<'+thisPoint+'> rdf:type cart:Point . ' +
-//                '<'+point_list_uri+'> cart:hasPoint <'+thisPoint+'> . ' +
-//                '<'+thisPoint+'> cart:xcoord '+ clickedCoords[i][0] + ' . ' +
-//                '<'+thisPoint+'> cart:ycoord '+ clickedCoords[i][1] + ' . ';
-//            if(i != clickedCoords.length - 1) {
-//                var thisWall = uri + "_wall_" + i;
-//                query += '<'+thisWall+'> rdf:type ifc:IfcWallStandardCase . ' +
-//                    '<'+containerUri+'> ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <'+thisWall+'> . ';
-//                var thisBoundary = boundaryUri + "_" + i;
-//                query += '<'+thisBoundary+'> rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
-//                    '<'+thisBoundary+'> ifc:RelatedBuildingElement <'+thisWall+'> . ' +
-//                    '<'+boundaryUri+'> ifc:InnerBoundaries <'+thisBoundary+'> . ' +
-//                    '<'+thisBoundary+'> ifc:ParentBoundary <'+boundaryUri+'> . ';
-//                var connectionGeom = thisBoundary + "_csg";
-//                query += '<'+connectionGeom+'> rdf:type ifc:IfcConnectionSurfaceGeometry . ' +
-//                    '<'+thisBoundary+'> ifc:ConnectionGeometry <'+connectionGeom+'> . ';
-//                var thisPlane = thisBoundary + '_cbp';
-//                query += '<'+thisPlane+'> rdf:type ifc:IfcCurveBoundedPlane . ' +
-//                    '<'+connectionGeom+'> ifc:SurfaceOnRelatingElement <'+thisPlane+'> . ';
-//                var thisLine = thisBoundary + "_line";
-//                query += '<'+thisLine+'> rdf:type ifc:IfcPolyline . ' +
-//                    '<'+thisPlane+'> ifc:OuterBoundary <'+thisLine+'> . ';
-//                this.addFace(clickedCoords[i], clickedCoords[i+1]);
-//            }
-//        }
-//        query += " } WHERE {} ";
-//        sparql.runUpdate(query);
-//        addRoom(uri, clickedCoords);
-//        clickedCoords = [];
-//        clickedCoordsForSensor = [];
-//        scene.remove(addedObj);
-//        for(var j = 0; j < pointsForAddingRoom.length; j++) {
-//            scene.remove(pointsForAddingRoom[j]);
-//        }
-//        addingRoom = false;
-//        ROOM_DETAILS.getSensors(uri);
-//        addWallsForRoom(uri);
-//    } else {
-//        ROOM_DETAILS.container.innerHTML = '<div class="alert alert-info"> ' +
-//            '<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>' +
-//            '<strong>Please add coordinates.</strong> Click on the points on the diagram at which you would like ' +
-//            'the room corners, then press "Add" again. You must start and finish at the same point</div>' +
-//            ROOM_DETAILS.container.innerHTML;
-//    }
-//};
 
 ROOM_DETAILS.addRoom = function () {
     this.addFace = function (coord1, coord2) {

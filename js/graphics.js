@@ -6,10 +6,12 @@
  * Last Modified:   25/08/15
  */
 
-//var graph = "http://localhost:8080/fuseki/rdf_stf/data/knoholem_Ifc";
 var graph = "http://localhost:8080/fuseki/rdf_stf/data/new";
-var queryEnd = "http://localhost:8080/fuseki/rdf_stf/";
+//var graph = "http://kdeg-vm-46.cs.tcd.ie:3036/ds/IfcVis/";
+var queryEnd = "http://localhost:8080/fuseki/rdf_stf/query";
+//var queryEnd = "http://kdeg-vm-46.cs.tcd.ie:3036/ds/query";
 var updateEnd = "http://localhost:8080/fuseki/rdf_stf/update";
+//var updateEnd = "http://kdeg-vm-46.cs.tcd.ie:3036/ds/update";
 var sparql = new SPARQL(queryEnd, updateEnd, graph);
 sparql.addPrefix("PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " +
     "PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#> " +
@@ -66,7 +68,7 @@ function init() {
     planContainer.appendChild( renderer.domElement );
 
     planContainer.addEventListener('mousedown', onCanvasMouseDown, false);
-    window.addEventListener('resize', onResize, true);
+    //window.addEventListener('resize', onResize, true);
 
     ROOM_DETAILS.setContainer(detailsName);
 
@@ -76,8 +78,13 @@ function init() {
         'UNION {' + SENSOR_DETAILS.param.uri + ' ifc:PredefinedType_of_IfcFlowMeter ' +SENSOR_DETAILS.param.val+ ' } ');
     SENSOR_DETAILS.setVariable('Cost', SENSOR_DETAILS.param.uri + ' ifc:HasAssignments ?rag . ' +
         '?rag ifc:RelatingGroup ?asset . ?asset ifc:currentValue_of_IfcAsset ' +SENSOR_DETAILS.param.val);
-    SENSOR_DETAILS.setVariable('Coordinates', SENSOR_DETAILS.param.uri + ' cart:hasPlacement ?point . ' +
-        '?point cart:xcoord ?x . ?point cart:ycoord ?y . ' +
+    SENSOR_DETAILS.setVariable('Coordinates', SENSOR_DETAILS.param.uri + ' ifc:ObjectPlacement ?placement . ' +
+        '?placement ifc:RelativePlacement ?relPlace . ' +
+        '?relPlace ifc:Location ?pointList . ' +
+        '?pointList ifc:Coordinates ?xcoord . ' +
+        '?xcoord ifc:hasListContent ?x . ' +
+        '?xcoord ifc:hasNext ?ycoord . ' +
+        '?ycoord ifc:hasListContent ?y . ' +
         'BIND (fn:concat(?x, ", ", ?y) AS '+SENSOR_DETAILS.param.val+')');
 
     fullscreenOn = true;
@@ -104,11 +111,10 @@ function newProject(id) {
     var grid = new THREE.GridHelper(100, 1);
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
-    animate_sensors_cart();
+    animate_sensors();
     //animate_rooms_cart();
     animate_rooms();
     document.getElementById(detailsName).innerHTML = "";
-    console.log(myCam.cam());
     render();
 }
 
@@ -136,13 +142,13 @@ function fullscreen() {
     myCam.adjustAspect(width / height);
 }
 
-function onResize() {
-    width = planContainer.clientWidth;
-    // notify the renderer of the size change
-    renderer.setSize( width, height );
-    // update the camera
-    myCam.adjustAspect(width / height);
-}
+//function onResize() {
+//    width = planContainer.clientWidth;
+//    // notify the renderer of the size change
+//    renderer.setSize( width, height );
+//    // update the camera
+//    myCam.adjustAspect(width / height);
+//}
 
 function getClickedDirection (event) {
     var vector = new THREE.Vector3(( (event.clientX - planContainer.offsetLeft) / width ) * 2 - 1,
@@ -275,12 +281,16 @@ function onMouseMove (event) {
     }
 }
 
-function animate_sensors_cart() {
+function animate_sensors() {
     var query = 'SELECT ?sensor ?x ?y FROM <' + sparql.getGraph() + '> WHERE { ' +
         '{ ?sensor rdf:type ifc:IfcSensor } UNION { ?sensor rdf:type ifc:IfcFlowMeter } . ' +
-        '?sensor cart:hasPlacement ?pos . ' +
-        '?pos cart:xcoord ?x . ' +
-        '?pos cart:ycoord ?y . ' +
+        '?sensor ifc:ObjectPlacement ?placement . ' +
+        '?placement ifc:RelativePlacement ?relPlace . ' +
+        '?relPlace ifc:Location ?pointList . ' +
+        '?pointList ifc:Coordinates ?xcoord . ' +
+        '?xcoord ifc:hasListContent ?x . ' +
+        '?xcoord ifc:hasNext ?ycoord . ' +
+        '?ycoord ifc:hasListContent ?y . ' +
         'FILTER(STRSTARTS(STR(?sensor), "' + DEST_URI + '")) . ' +
         '} ';
     var results = sparql.simpleQuery(query);
@@ -303,33 +313,6 @@ function addSensor (uri, x, y) {
     sensor.myType = "sensor";
     objects.push(sensor);
 }
-
-/*
-This function is to be removed :)
- */
-//function animate_rooms_cart() {
-//    var query = 'SELECT ?space ?x ?y ' +
-//        'FROM <' + sparql.getGraph() + '> ' +
-//        'WHERE { ?space rdf:type ifc:IfcSpace .' +
-//        '?space cart:hasPlacement ?pos . ' +
-//        '?pos cart:hasPoint ?point . ' +
-//        '?point cart:xcoord ?x . ' +
-//        '?point cart:ycoord ?y . ' +
-//        'FILTER(STRSTARTS(STR(?space), "' + DEST_URI + '"))' +
-//        '} ';
-//    var results = sparql.simpleQuery(query);
-//    for(var i = 0; i < results.length; i++) {
-//        var room_name = results[i]["space"].value;
-//        var coordinates = [];
-//        while ((i < results.length) && (room_name == results[i]["space"].value)) {
-//            coordinates.push([parseFloat(results[i].x.value), parseFloat(results[i].y.value)]);
-//            i++;
-//        }
-//        addRoom(room_name, coordinates);
-//        addWallsForRoom(room_name);
-//        i--;
-//    }
-//}
 
 function animate_rooms() {
     var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
@@ -375,7 +358,6 @@ function animate_rooms() {
         var points = sparql.simpleQuery(query);
             var coord_results = [];
             while (points.length > 1) {
-                console.log("looping");
                 var next = points[0]["next"].value;
                 coord_results.push([parseFloat(points[1]["x"].value), parseFloat(points[1]["y"].value)]);
                 query = 'SELECT ?next ?x ?y FROM <' + sparql.getGraph() + '> ' +
@@ -406,8 +388,6 @@ function animate_rooms() {
             coord_results.push([parseFloat(points[0]["x"].value), parseFloat(points[0]["y"].value)]);
         }
         if(coord_results.length > 0) {
-            console.log("addingRoom");
-            console.log(coord_results);
             addRoom(roomName, coord_results);
         }
         addWallsForRoom(roomName);
