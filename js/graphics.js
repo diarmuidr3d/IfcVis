@@ -235,7 +235,7 @@ function onClick (event) {
     } else if (clickedCoords[0][0] == x && clickedCoords[0][1] == y) {
         creating = false;
         scene.remove(addedObj);
-        scene.add(addObj());
+        scene.add(drawBox(clickedCoords, null, new THREE.MeshBasicMaterial({color: 0xff0000})));
         addedObj = null;
         document.removeEventListener('mousemove', onMouseMove, false);
         document.removeEventListener('click', onClick, false);
@@ -246,22 +246,24 @@ function onClick (event) {
         }
         var point = [x, y];
         clickedCoords.push(point);
-        addedObj = addObj();
+        addedObj = drawBox(clickedCoords, null, new THREE.MeshBasicMaterial({color: 0xff0000}));
         scene.add(addedObj);
     }
 }
 
-function addObj(extraCoord) {
-    var object = new THREE.Shape();
-    object.moveTo(clickedCoords[0][0], clickedCoords[0][1]);
-    for(var i = 1; i < clickedCoords.length; i ++) {
-        object.lineTo(clickedCoords[i][0], clickedCoords[i][1]);
+function drawBox(coords, extraCoord, material) {
+    var box = new THREE.Shape();
+    box.moveTo(coords[0][0], coords[0][1]);
+    myCam.add_coord_range(coords[0][0], coords[0][1]);
+    for(var i = 1; i < coords.length; i++) {
+        box.lineTo(coords[i][0], coords[i][1]);
+        myCam.add_coord_range(coords[i][0], coords[i][1]);
     }
     if(extraCoord != null) {
         object.lineTo(extraCoord[0], extraCoord[1]);
     }
-    var geom = new THREE.ShapeGeometry(object);
-    return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({color: 0xff0000}));
+    var geom = new THREE.ShapeGeometry(box);
+    return new THREE.Mesh( geom, material );
 }
 
 function onMouseMove (event) {
@@ -274,7 +276,7 @@ function onMouseMove (event) {
         }
         if(clickedCoords.length > 1) {
             var point = [position.x, position.y];
-            addedObj = addObj(point);
+            addedObj = drawBox(clickedCoords, point, new THREE.MeshBasicMaterial({color: 0xff0000}));
             scene.add(addedObj);
         }
     }
@@ -356,7 +358,6 @@ function getCoordinatesFromList (uri) {
         'WHERE { ' +
         'OPTIONAL { ' +
         '{ <' + uri + '> ifc:hasNext ?next } UNION { <' + uri + '> ifc:isFollowedBy ?next }} . ' +
-            //'} UNION { ' +
         '{ ' +
             '<' + uri + '> ifc:hasListContent ?point . ' +
             '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
@@ -381,7 +382,6 @@ function getCoordinatesFromList (uri) {
                 '?coordz ifc:has_double ?z . ' +
             '}' +
         '} ' +
-            //'} ' +
         '}';
     var coords = sparql.simpleQuery(query);
     for (var i = 0; i < coords.length; i++) {
@@ -539,20 +539,8 @@ function drawUprightBox(coords, material) {
     return new THREE.Mesh(geometry, material);
 }
 
-function drawBox(coords) {
-    var box = new THREE.Shape();
-    box.moveTo(coords[0][0], coords[0][1]);
-    myCam.add_coord_range(coords[0][0], coords[0][1]);
-    for(var i = 1; i < coords.length; i++) {
-        box.lineTo(coords[i][0], coords[i][1]);
-        myCam.add_coord_range(coords[i][0], coords[i][1]);
-    }
-    var geom = new THREE.ShapeGeometry(box);
-    return new THREE.Mesh( geom, new THREE.MeshBasicMaterial({color: defaultColours.room.default}) );
-}
-
 function addRoom(uri, coordinates) {
-    var roomMesh = drawBox(coordinates, true);
+    var roomMesh = drawBox(coordinates, null,new THREE.MeshBasicMaterial({color: defaultColours.room.default}));
     roomMesh.uri = uri;
     scene.add(roomMesh);
     roomMesh.myType = "room";
