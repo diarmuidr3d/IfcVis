@@ -323,7 +323,7 @@ function animate_rooms() {
     for(var i = 0; i < results.length; i++) {
         var room = new THREE.Shape();
         var roomName = results[i].room.value;
-        query = 'SELECT ?next ?x ?y ?z FROM <'+sparql.getGraph()+'> '+
+        query = 'SELECT ?ptlist FROM <'+sparql.getGraph()+'> '+
             'WHERE { ' +
             '<' + roomName + '> ifc:Representation ?rep . '+
             '?rep ifc:Representations ?repList . ' +
@@ -333,67 +333,17 @@ function animate_rooms() {
                 '?z ifc:Bounds ?s . '+
                 '?s ifc:Bound ?t . '+
                 '?t ifc:Polygon ?ptlist . ' +
-                '{ ?ptlist ifc:hasNext ?next } ' +
-                'UNION {' +
-                '?ptlist ifc:hasListContent ?point . ' +
-                '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-                '?loop ifc:hasListContent ?x . ' +
-                '?loop ifc:hasNext ?loop2 . ' +
-                '?loop2 ifc:hasListContent ?y . ' +
-                //'OPTIONAL { ?loop2 ifc:hasNext ?loop3 . ?loop3 ifc:hasListContent ?z } . ' +
-                '} ' +
             '} UNION { ' +
                 '?z ifc:SweptArea ?area . ' +
                 '?area ifc:OuterCurve ?line . ' +
                 '?line ifc:Points ?ptlist . ' +
-                '{ ?ptlist ifc:isFollowedBy ?next } ' +
-                'UNION { ' +
-                    '?ptlist ifc:hasListContent ?point . ' +
-                    '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-                    '?loop ifc:hasListContent ?coordx . ' +
-                    '?coordx ifc:has_double ?x . ' +
-                    '?loop ifc:isFollowedBy ?loop2 . ' +
-                    '?loop2 ifc:hasListContent ?coordy . ' +
-                    '?coordy ifc:has_double ?y . ' +
-                    //'OPTIONAL { ?loop2 ifc:hasNext ?loop3 . ' +
-                    //    '?loop3 ifc:hasListContent ?zcoord . ' +
-                    //    '?zcoord ifc:has_double ?z } . ' +
-                '} ' +
             '}}';
         var points = sparql.simpleQuery(query);
-            var coord_results = [];
-            while (points.length > 1) {
-                var next = points[0]["next"].value;
-                coord_results.push([parseFloat(points[1]["x"].value), parseFloat(points[1]["y"].value)]);
-                query = 'SELECT ?next ?x ?y FROM <' + sparql.getGraph() + '> ' +
-                    'WHERE { ' +
-                    '{ ' +
-                        '{ <' + next + '> ifc:hasNext ?next } UNION { <' + next + '> ifc:isFollowedBy ?next }' +
-                    '} UNION { ' +
-                        '{ ' +
-                            '<' + next + '> ifc:hasListContent ?point . ' +
-                            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-                            '?loop ifc:hasListContent ?x . ' +
-                            '?loop ifc:hasNext ?loop2 . ' +
-                            '?loop2 ifc:hasListContent ?y ' +
-                        '} UNION { ' +
-                            '<' + next + '> ifc:hasListContent ?point . ' +
-                            '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-                            '?loop ifc:hasListContent ?coordx . ' +
-                            '?coordx ifc:has_double ?x . ' +
-                            '?loop ifc:isFollowedBy ?loop2 . ' +
-                            '?loop2 ifc:hasListContent ?coordy . ' +
-                            '?coordy ifc:has_double ?y } ' +
-                        '} ' +
-                    ' ' +
-                    '}';
-                points = sparql.simpleQuery(query);
-            }
         if(points.length > 0) {
-            coord_results.push([parseFloat(points[0]["x"].value), parseFloat(points[0]["y"].value)]);
-        }
-        if(coord_results.length > 0) {
-            addRoom(roomName, coord_results);
+            var coord_results = getCoordinatesFromList(points[0]["ptlist"].value);
+            if(coord_results.length > 0) {
+                addRoom(roomName, coord_results);
+            }
         }
         addWallsForRoom(roomName);
     }
