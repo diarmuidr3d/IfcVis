@@ -562,7 +562,7 @@ ROOM_DETAILS.addRoom = function () {
         }
         query += " } WHERE {} ";
         sparql.runUpdate(query);
-        addRoom(uri, clickedCoords);
+        addRoom(uri, clickedCoords, null);
         clickedCoords = [];
         clickedCoordsForSensor = [];
         scene.remove(addedObj);

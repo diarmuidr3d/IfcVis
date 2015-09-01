@@ -235,7 +235,7 @@ function onClick (event) {
     } else if (clickedCoords[0][0] == x && clickedCoords[0][1] == y) {
         creating = false;
         scene.remove(addedObj);
-        scene.add(drawBox(clickedCoords, null, new THREE.MeshBasicMaterial({color: 0xff0000})));
+        scene.add(drawBox(clickedCoords, null, null, new THREE.MeshBasicMaterial({color: 0xff0000})));
         addedObj = null;
         document.removeEventListener('mousemove', onMouseMove, false);
         document.removeEventListener('click', onClick, false);
@@ -246,24 +246,9 @@ function onClick (event) {
         }
         var point = [x, y];
         clickedCoords.push(point);
-        addedObj = drawBox(clickedCoords, null, new THREE.MeshBasicMaterial({color: 0xff0000}));
+        addedObj = drawBox(clickedCoords, null, null, new THREE.MeshBasicMaterial({color: 0xff0000}));
         scene.add(addedObj);
     }
-}
-
-function drawBox(coords, extraCoord, material) {
-    var box = new THREE.Shape();
-    box.moveTo(coords[0][0], coords[0][1]);
-    myCam.add_coord_range(coords[0][0], coords[0][1]);
-    for(var i = 1; i < coords.length; i++) {
-        box.lineTo(coords[i][0], coords[i][1]);
-        myCam.add_coord_range(coords[i][0], coords[i][1]);
-    }
-    if(extraCoord != null) {
-        object.lineTo(extraCoord[0], extraCoord[1]);
-    }
-    var geom = new THREE.ShapeGeometry(box);
-    return new THREE.Mesh( geom, material );
 }
 
 function onMouseMove (event) {
@@ -276,7 +261,7 @@ function onMouseMove (event) {
         }
         if(clickedCoords.length > 1) {
             var point = [position.x, position.y];
-            addedObj = drawBox(clickedCoords, point, new THREE.MeshBasicMaterial({color: 0xff0000}));
+            addedObj = drawBox(clickedCoords, point, null, new THREE.MeshBasicMaterial({color: 0xff0000}));
             scene.add(addedObj);
         }
     }
@@ -299,7 +284,7 @@ function animate_sensors() {
         var xcoord = parseFloat(results[i].x.value);
         var ycoord = parseFloat(results[i].y.value);
         addSensor(results[i].sensor.value, xcoord, ycoord);
-        myCam.add_coord_range(xcoord, ycoord);
+        myCam.add_coord_range(xcoord, ycoord, 0);
     }
 }
 
@@ -318,13 +303,15 @@ function addSensor (uri, x, y) {
 function animate_rooms() {
     var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
         'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
-        'SELECT ?room ?coord FROM <'+sparql.getGraph()+'> '+
-        'WHERE { ?room rdf:type ifc:IfcSpace ' +
+        'SELECT ?room ?placement FROM <'+sparql.getGraph()+'> '+
+        'WHERE { ?room rdf:type ifc:IfcSpace . ' +
+        'OPTIONAL {?room ifc:ObjectPlacement ?placement } . ' +
         'FILTER(STRSTARTS(STR(?room), "' + DEST_URI + '")) }';
     var results = sparql.simpleQuery(query);
     for(var i = 0; i < results.length; i++) {
         var room = new THREE.Shape();
-        var roomName = results[i].room.value;
+        var thisRow = results[i];
+        var roomName = thisRow.room.value;
         query = 'SELECT ?ptlist FROM <'+sparql.getGraph()+'> '+
             'WHERE { ' +
             '<' + roomName + '> ifc:Representation ?rep . '+
@@ -341,14 +328,48 @@ function animate_rooms() {
                 '?line ifc:Points ?ptlist . ' +
             '}}';
         var points = sparql.simpleQuery(query);
+        var offsetCoords = null;
+        if("placement" in thisRow) {
+            offsetCoords = getCumulativePlacement(thisRow["placement"].value);
+        }
         if(points.length > 0) {
             var coord_results = getCoordinatesFromList(points[0]["ptlist"].value);
             if(coord_results.length > 0) {
-                addRoom(roomName, coord_results);
+                addRoom(roomName, coord_results, offsetCoords);
             }
         }
         addWallsForRoom(roomName);
     }
+}
+
+function getCumulativePlacement (localPlacementUri) {
+    var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
+        '<' + localPlacementUri + '> ifc:RelativePlacement ?axisPlace . ' +
+        'OPTIONAL { <' + localPlacementUri + '> ifc:PlacementRelTo ?next } . ' +
+        '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
+        '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
+        '?xcoord ifc:hasListContent ?xlm . ' +
+        '?xlm ifc:has_double ?x . ' +
+        '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
+        '?ycoord ifc:hasListContent ?ylm . ' +
+        '?ylm ifc:has_double ?y . ' +
+        '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
+        '?zcoord ifc:hasListContent ?zlm . ' +
+        '?zlm ifc:has_double ?z . ' +
+        '}';
+    var coords = sparql.simpleQuery(query)[0];
+    var coordinates = {
+        x: parseFloat(coords.x.value),
+        y: parseFloat(coords.y.value),
+        z: parseFloat(coords.z.value)
+    };
+    if(["next"] in coords) {
+        var cumulativeCoords = getCumulativePlacement(coords["next"].value);
+        coordinates.x += cumulativeCoords.x;
+        coordinates.y += cumulativeCoords.y;
+        coordinates.z += cumulativeCoords.z;
+    }
+    return coordinates;
 }
 
 function getCoordinatesFromList (uri) {
@@ -439,7 +460,7 @@ function addWallsForRoom (room_uri) {
                 coordinates.push([coordinates[0][0], coordinates[0][1], parseFloat(coord.depth.value)]);
             }
             if (coordinates.length > 2) {
-                var wallMesh = drawUprightBox(coordinates, wallMaterial);
+                var wallMesh = drawUprightBox(coordinates, null, wallMaterial);
                 wallMesh.uri = wallUri;
                 wallMesh.renderOrder = 1;
                 scene.add(wallMesh);
@@ -503,7 +524,7 @@ function addOpening (wallUri) {
                 point.position.z = results[0][z].value;
                 scene.add(point);
             }
-            var opening = drawUprightBox(coords, openingMaterial);
+            var opening = drawUprightBox(coords, null, openingMaterial);
             scene.add(opening);
         }
     };
@@ -527,9 +548,16 @@ function addOpening (wallUri) {
     }
 }
 
-function drawUprightBox(coords, material) {
+function drawUprightBox(coords, offset, material) {
+    if(offset == null) {
+        offset = {x:0, y:0, z:0};
+    }
     var geometry = new THREE.Geometry();
+    var x,y;
     for(var i =0; i < coords.length; i++) {
+        x = coords[i][0] + offset.x;
+        y = coords[i][1] + offset.y;
+        z = coords[i][2] + offset.z;
         geometry.vertices.push(new THREE.Vector3( coords[i][0],  coords[i][1], coords[i][2] ));
     }
     geometry.faces.push(new THREE.Face3(0, 1, 2));
@@ -539,8 +567,32 @@ function drawUprightBox(coords, material) {
     return new THREE.Mesh(geometry, material);
 }
 
-function addRoom(uri, coordinates) {
-    var roomMesh = drawBox(coordinates, null,new THREE.MeshBasicMaterial({color: defaultColours.room.default}));
+function drawBox(coords, extraCoord, offset, material) {
+    if(offset == null) {
+        offset = {x:0, y:0, z:0};
+    }
+    var box = new THREE.Shape();
+    var x = coords[0][0] + offset.x;
+    var y = coords[0][1] + offset.y;
+    box.moveTo(x, y);
+    myCam.add_coord_range(x, y, offset.z);
+    for(var i = 1; i < coords.length; i++) {
+        x = coords[i][0] + offset.x;
+        y = coords[i][1] + offset.y;
+        box.lineTo(x, y);
+        myCam.add_coord_range(x,y, offset.z);
+    }
+    if(extraCoord != null) {
+        object.lineTo(extraCoord[0] + offset.x, extraCoord[1] + offset.y);
+    }
+    var geom = new THREE.ShapeGeometry(box);
+    var mesh = new THREE.Mesh( geom, material );
+    mesh.position.z = offset.z;
+    return mesh;
+}
+
+function addRoom(uri, coordinates, roomOffset) {
+    var roomMesh = drawBox(coordinates, null, roomOffset, new THREE.MeshBasicMaterial({color: defaultColours.room.default}));
     roomMesh.uri = uri;
     scene.add(roomMesh);
     roomMesh.myType = "room";
@@ -552,7 +604,7 @@ function addRoom(uri, coordinates) {
 
 var CAMERA = function (aspectRatio) {
 
-    var maxmin = {x: {max: null, min: null}, y: {max: null, min: null}, first:true};
+    var maxmin = {x: {max: null, min: null}, y: {max: null, min: null}, z: {max: null, min: null}, first:true};
 
     this.cam = function () {
         return camera;
@@ -631,26 +683,31 @@ var CAMERA = function (aspectRatio) {
         var output = {x: null, y: null, z: null};
         output.x = (largeX + smallX) / 2.0;
         output.y = (largeY + smallY) / 2.0;
-        var xpos_z = ((largeX - smallX) / 2.0) / Math.tan(0.5);
-        var ypos_z = ((largeY - smallY) / 2.0) / Math.tan(0.5);
+        var xpos_z = (( (largeX - smallX) / Math.tan(camera.fov / (2 * (180 / Math.PI)))) / 2.0) + maxmin.z.max;
+        var ypos_z = (( (largeY - smallY) / Math.tan(camera.fov / (2 * (180 / Math.PI)))) / 2.0) + maxmin.z.max;
+        //var xpos_z = ((largeX - smallX) / 2.0) / Math.tan(0.5);
+        //var ypos_z = ((largeY - smallY) / 2.0) / Math.tan(0.5);
         if (xpos_z > ypos_z) {
-            output.z = xpos_z;
+            output.z = xpos_z + (0.1 * xpos_z);
         } else {
-            output.z = ypos_z;
+            output.z = ypos_z+ (0.1 * ypos_z);
         }
         if(output.z < 30 && this.zoom.out) {
             output.z = 30;
         }
         return output
     };
-    this.add_coord_range = function(x,y) {
+    this.add_coord_range = function(x,y,z) {
         x = parseFloat(x);
         y = parseFloat(y);
+        z = parseFloat(z);
         if (maxmin.first) {
             maxmin.x.max = x;
             maxmin.x.min = x;
             maxmin.y.max = y;
             maxmin.y.min = y;
+            maxmin.z.max = z;
+            maxmin.z.min = z;
             maxmin.first = false;
         }
         if (x > maxmin.x.max) {
@@ -663,6 +720,11 @@ var CAMERA = function (aspectRatio) {
         } else if (y < maxmin.y.min) {
             maxmin.y.min = y;
         }
+        if (z > maxmin.z.max) {
+            maxmin.z.max = z;
+        } else if (z < maxmin.z.min) {
+            maxmin.z.min = z;
+        }
         var coords = this.get_camera_coords(maxmin.x.max, maxmin.x.min, maxmin.y.max, maxmin.y.min);
         this.zoom.default.x = coords.x;
         this.zoom.default.y = coords.y;
@@ -672,7 +734,7 @@ var CAMERA = function (aspectRatio) {
         this.zoom.destination.z = coords.z;
     };
 
-    var camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 8000 );
+    var camera = new THREE.PerspectiveCamera( 75, aspectRatio, 0.1, 10000 );
     camera.position.x = 0;
     camera.position.y = 0;
     camera.position.z = 30;
