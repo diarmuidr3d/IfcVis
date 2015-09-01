@@ -128,7 +128,6 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                 formData.name = result.results.bindings[0].name.value;
             }
             formData.value = parseInt(form.elements[i].value);
-            console.log(formData.value);
             i++;
             if(form.elements[i].checked == true) {
                 formData.type = form.elements[i].nextSibling.data;
@@ -174,14 +173,17 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                         '<' + sensorUri + '_asset> ifc:currentValue_of_IfcAsset 0 .  ' +
                     '} ' +
                     'WHERE {} ';
-                console.log(sensorUri + " doesn't already have asset relations, adding them.");
                 sparql.runUpdate(query);
             };
             this.checkIfSensorHasCoordSetup = function(sensorUri) {
-                var query = 'SELECT ?point ' +
+                var query = 'SELECT ?ycoord ' +
                     'FROM <' + sparql.getGraph() + '> ' +
                     'WHERE { ' +
-                    '<' + sensorUri + '> cart:hasPlacement ?point ' +
+                    '<' + sensorUri + '> ifc:ObjectPlacement ?placement . ' +
+                    '?placement ifc:RelativePlacement ?relPlace . ' +
+                    '?relPlace ifc:Location ?pointList . ' +
+                    '?pointList ifc:Coordinates ?xcoord . ' +
+                    '?xcoord ifc:hasNext ?ycoord . ' +
                     '} ';
                 var result = sparql.simpleQuery(query);
                 return result.length != 0;
@@ -209,7 +211,6 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                         '<' + ycoord + '> ifc:hasListContent "" . ' +
                     '}' +
                     'WHERE {}';
-                console.log(sensorUri + " doesn't already have coordinate relations, adding them.");
                 sparql.runUpdate(query);
             };
 
@@ -460,8 +461,8 @@ ROOM_DETAILS.addRoom = function () {
         var pointList4 = this.addCorner(coord4, 3);
         query += '<' + pointList1 + '> ifc:hasNext <' + pointList2 + '> . ' +
             '<' + pointList2 + '> ifc:hasNext <' + pointList3 + '> . ' +
-            '<' + pointList3 + '> ifc:hasNext <' + pointList4 + '> . ' +
-            '<' + pointList4 + '> ifc:hasNext <' + pointList1 + '> . ';
+            '<' + pointList3 + '> ifc:hasNext <' + pointList4 + '> . ' /*+
+            '<' + pointList4 + '> ifc:hasNext <' + pointList1 + '> . '*/;
     };
     this.addCorner = function (coord, counter) {
         var pointList = thisBoundary + "_points_" + counter;

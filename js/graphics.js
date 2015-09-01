@@ -16,7 +16,6 @@ var sparql = new SPARQL(queryEnd, updateEnd, graph);
 sparql.addPrefix("PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> " +
     "PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#> " +
     "PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> " +
-    "PREFIX cart: <http://purl.org/net/cartCoord#> " +
     "PREFIX fn: <http://www.w3.org/2005/xpath-functions#> ");
 
 var DEST_URI = "http://something/example#";
@@ -324,7 +323,7 @@ function animate_rooms() {
     for(var i = 0; i < results.length; i++) {
         var room = new THREE.Shape();
         var roomName = results[i].room.value;
-        query = 'SELECT ?next ?x ?y FROM <'+sparql.getGraph()+'> '+
+        query = 'SELECT ?next ?x ?y ?z FROM <'+sparql.getGraph()+'> '+
             'WHERE { ' +
             '<' + roomName + '> ifc:Representation ?rep . '+
             '?rep ifc:Representations ?repList . ' +
@@ -335,25 +334,31 @@ function animate_rooms() {
                 '?s ifc:Bound ?t . '+
                 '?t ifc:Polygon ?ptlist . ' +
                 '{ ?ptlist ifc:hasNext ?next } ' +
-                'UNION ' +
-                '{ ?ptlist ifc:hasListContent ?point . ' +
+                'UNION {' +
+                '?ptlist ifc:hasListContent ?point . ' +
                 '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
                 '?loop ifc:hasListContent ?x . ' +
                 '?loop ifc:hasNext ?loop2 . ' +
-                '?loop2 ifc:hasListContent ?y } ' +
+                '?loop2 ifc:hasListContent ?y . ' +
+                //'OPTIONAL { ?loop2 ifc:hasNext ?loop3 . ?loop3 ifc:hasListContent ?z } . ' +
+                '} ' +
             '} UNION { ' +
                 '?z ifc:SweptArea ?area . ' +
                 '?area ifc:OuterCurve ?line . ' +
                 '?line ifc:Points ?ptlist . ' +
                 '{ ?ptlist ifc:isFollowedBy ?next } ' +
-                'UNION ' +
-                '{ ?ptlist ifc:hasListContent ?point . ' +
-                '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
-                '?loop ifc:hasListContent ?coordx . ' +
-                '?coordx ifc:has_double ?x . ' +
-                '?loop ifc:isFollowedBy ?loop2 . ' +
-                '?loop2 ifc:hasListContent ?coordy . ' +
-                '?coordy ifc:has_double ?y } ' +
+                'UNION { ' +
+                    '?ptlist ifc:hasListContent ?point . ' +
+                    '?point ifc:Coordinates_of_IfcCartesianPoint ?loop . ' +
+                    '?loop ifc:hasListContent ?coordx . ' +
+                    '?coordx ifc:has_double ?x . ' +
+                    '?loop ifc:isFollowedBy ?loop2 . ' +
+                    '?loop2 ifc:hasListContent ?coordy . ' +
+                    '?coordy ifc:has_double ?y . ' +
+                    //'OPTIONAL { ?loop2 ifc:hasNext ?loop3 . ' +
+                    //    '?loop3 ifc:hasListContent ?zcoord . ' +
+                    //    '?zcoord ifc:has_double ?z } . ' +
+                '} ' +
             '}}';
         var points = sparql.simpleQuery(query);
             var coord_results = [];
@@ -394,60 +399,118 @@ function animate_rooms() {
     }
 }
 
+function getCoordinatesFromList (uri) {
+    var coordinates = [];
+    var nextUri = "";
+    var query = 'SELECT ?next ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
+        'WHERE { ' +
+        'OPTIONAL { ' +
+        '{ <' + uri + '> ifc:hasNext ?next } UNION { <' + uri + '> ifc:isFollowedBy ?next }} . ' +
+            //'} UNION { ' +
+        '{ ' +
+            '<' + uri + '> ifc:hasListContent ?point . ' +
+            '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
+            '?loop ifc:hasListContent ?x . ' +
+            '?loop ifc:hasNext ?loop2 . ' +
+            '?loop2 ifc:hasListContent ?y . ' +
+            'OPTIONAL { ' +
+                '?loop2 ifc:hasNext ?loop3 . ' +
+                '?loop3 ifc:hasListContent ?z . ' +
+            '} ' +
+        '} UNION { ' +
+            '<' + uri + '> ifc:hasListContent ?point . ' +
+            '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
+            '?loop ifc:hasListContent ?coordx . ' +
+            '?coordx ifc:has_double ?x . ' +
+            '?loop ifc:isFollowedBy ?loop2 . ' +
+            '?loop2 ifc:hasListContent ?coordy . ' +
+            '?coordy ifc:has_double ?y . ' +
+            'OPTIONAL { ' +
+                '?loop2 ifc:isFollowedBy ?loop3 . ' +
+                '?loop3 ifc:hasListContent ?coordz . ' +
+                '?coordz ifc:has_double ?z . ' +
+            '}' +
+        '} ' +
+            //'} ' +
+        '}';
+    var coords = sparql.simpleQuery(query);
+    for (var i = 0; i < coords.length; i++) {
+        var thisRow = coords[i];
+        if("next" in thisRow) {
+            nextUri = thisRow["next"].value;
+        }
+        if("x" in thisRow) {
+            if("z" in thisRow) {
+                coordinates.push([parseFloat(thisRow.x.value), parseFloat(thisRow.y.value), parseFloat(thisRow.z.value)]);
+            } else {
+                coordinates.push([parseFloat(thisRow.x.value), parseFloat(thisRow.y.value)]);
+            }
+        }
+    }
+    if(nextUri != "") {
+        coordinates = coordinates.concat(getCoordinatesFromList(nextUri));
+    }
+    return coordinates;
+}
+
 var wallMaterial = new THREE.MeshBasicMaterial({color: 0x00ff00, transparent: true, opacity: 0.2});
 var openingMaterial = new THREE.MeshBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.2});
 
 function addWallsForRoom (room_uri) {
 
     this.addWall = function (sectionUri, wallUri) {
-        query = 'SELECT ?x ?y ?z FROM <'+sparql.getGraph()+'> WHERE { ' +
-            '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
+        query = 'SELECT ?coordsUri FROM <'+sparql.getGraph()+'> WHERE { ' +
+            '{ ' +
+                '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
+            '} UNION {' +
+                '<'+sectionUri+'> ifc:ConnectionGeometry_of_IfcRelSpaceBoundary ?csg . ' +
+            '} ' +
             '?csg ifc:SurfaceOnRelatingElement ?cbp . ' +
-            '?cbp ifc:OuterBoundary ?line . ' +
-            '?line ifc:Points ?list . ' +
-            '?list ifc:hasListContent ?point . ' +
-            '?point ifc:Coordinates ?coord . ' +
-            '?coord ifc:hasListContent ?x . ' +
-            '?coord ifc:hasNext ?coord1 . ' +
-            '?coord1 ifc:hasListContent ?y . ' +
-            '?coord1 ifc:hasNext ?coord2 . ' +
-            '?coord2 ifc:hasListContent ?z }';
+            '{ ' +
+                '?cbp ifc:OuterBoundary ?line . ' +
+            '} UNION { ' +
+                '?cbp ifc:OuterBoundary_of_IfcCurveBoundedPlane ?line . ' +
+            '} UNION { ' +
+                '?cbp ifc:SweptCurve ?curve . ' +
+                '?curve ifc:Curve ?line . ' +
+                '?cbp ifc:Depth_of_ifcSurfaceOfLinearExtrusion ?depth . ' +
+            '} ' +
+            '?line ifc:Points ?coordsUri . ' +
+            '}';
         var coords = sparql.simpleQuery(query);
-        /* An alternative representation for walls is in the comment below it was removed to allow for variable height*/
-        //var x1 = parseFloat(coords[0].x.value);
-        //var x2 = parseFloat(coords[1].x.value);
-        //var y1 = parseFloat(coords[0].y.value);
-        //var y2 = parseFloat(coords[1].y.value);
-        //var height = parseFloat(coords[2].z.value);
-        //var length = Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2- y1), 2));
-        //var width = 0.2;
-        //var angle = Math.atan((y1 - y2) / (x1 - x2));
-        //if(length < 0) {
-        //    length = 0 - length;
-        //}
-        //var wallMesh = new THREE.Mesh(new THREE.BoxGeometry(width, length ,height), wallMaterial);
-        //wallMesh.position.x = (x1 + x2 )/ 2;
-        //wallMesh.position.y = (y1 + y2 )/ 2;
-        //wallMesh.position.z = height / 2;
-        //wallMesh.rotation.z = (Math.PI / 2) + angle;
-        var coordinates = [];
-        for(var i = 0; i < coords.length; i++) {
-            coordinates.push([parseFloat(coords[i].x.value), parseFloat(coords[i].y.value), parseFloat(coords[i].z.value)])
+        if(coords.length > 0) {
+            var coordinates = [];
+            var coord = coords[0];
+            if ("coordsUri" in coord) {
+                coordinates = getCoordinatesFromList(coord["coordsUri"].value);
+            }
+            if("depth" in coord) {
+                coordinates.push([coordinates[1][0], coordinates[1][1], parseFloat(coord.depth.value)]);
+                coordinates.push([coordinates[0][0], coordinates[0][1], parseFloat(coord.depth.value)]);
+            }
+            if (coordinates.length > 2) {
+                var wallMesh = drawUprightBox(coordinates, wallMaterial);
+                wallMesh.uri = wallUri;
+                wallMesh.renderOrder = 1;
+                scene.add(wallMesh);
+                walls.push(wallMesh);
+            }
         }
-        var wallMesh = drawUprightBox(coordinates, wallMaterial);
-        wallMesh.uri = wallUri;
-        wallMesh.renderOrder = 1;
-        scene.add(wallMesh);
-        walls.push(wallMesh);
     };
 
     var query = 'SELECT ?section ?wall FROM <'+sparql.getGraph()+'> WHERE { ' +
-        '?bound ifc:RelatingSpace <' + room_uri +'> . ' +
-        '?bound rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
-        '?bound ifc:InnerBoundaries ?section . ' +
-        '?section ifc:RelatedBuildingElement ?wall }';
+        '{ ' +
+            '?bound ifc:RelatingSpace <' + room_uri +'> . ' +
+            '?bound rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
+            '?bound ifc:InnerBoundaries ?section . ' +
+            '?section ifc:RelatedBuildingElement ?wall . ' +
+        '} UNION { ' +
+            '?section ifc:RelatingSpace <' + room_uri +'> . ' +
+            '?section ifc:RelatedBuildingElement_of_IfcRelSpaceBoundary ?wall . ' +
+        '}' +
+        '}';
     var boundary_results = sparql.simpleQuery(query);
-    for(var i = 0; i < boundary_results.length; i++) {
+    for (var i = 0; i < boundary_results.length; i++) {
         this.addWall(boundary_results[i]["section"].value, boundary_results[i]["wall"].value);
         addOpening(boundary_results[i]["wall"].value);
     }
