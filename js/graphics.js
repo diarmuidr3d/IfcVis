@@ -111,7 +111,6 @@ function newProject(id) {
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
     animate_sensors();
-    //animate_rooms_cart();
     animate_rooms();
     document.getElementById(detailsName).innerHTML = "";
     render();
@@ -140,14 +139,6 @@ function fullscreen() {
     renderer.setSize( width, height );
     myCam.adjustAspect(width / height);
 }
-
-//function onResize() {
-//    width = planContainer.clientWidth;
-//    // notify the renderer of the size change
-//    renderer.setSize( width, height );
-//    // update the camera
-//    myCam.adjustAspect(width / height);
-//}
 
 function getClickedDirection (event) {
     var vector = new THREE.Vector3(( (event.clientX - planContainer.offsetLeft) / width ) * 2 - 1,
@@ -410,9 +401,6 @@ function getCoordinatesFromList (uri, offset) {
     var coords = sparql.simpleQuery(query);
     for (var i = 0; i < coords.length; i++) {
         var thisRow = coords[i];
-        //if("next" in thisRow) {
-        //    nextUri = thisRow["next"].value;
-        //}
         if("x" in thisRow) {
             if("z" in thisRow) {
                 coordinates.push([
@@ -429,9 +417,6 @@ function getCoordinatesFromList (uri, offset) {
             }
         }
     }
-    //if(nextUri != "") {
-    //    coordinates = coordinates.concat(getCoordinatesFromList(nextUri, offset));
-    //}
     return coordinates;
 }
 
