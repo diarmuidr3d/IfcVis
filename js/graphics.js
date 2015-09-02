@@ -41,7 +41,7 @@ var putClickedCoords = "putCoordsHere";
 var planContainer;
 
 var defaultColours = {
-    room: {default: 0xa2a2a2, highlight: 0xb82e7c, edge: 0x838383},
+    room: {default: 0xa2a2a2, highlight: 0xb82e7c, edge: 0x000000},
     sensor: {default: 0xd8d8d8, highlight: 0x121011}
 };
 
@@ -67,7 +67,6 @@ function init() {
     planContainer.appendChild( renderer.domElement );
 
     planContainer.addEventListener('mousedown', onCanvasMouseDown, false);
-    //window.addEventListener('resize', onResize, true);
 
     ROOM_DETAILS.setContainer(detailsName);
 
@@ -343,40 +342,34 @@ function animate_rooms() {
     }
 }
 
-var calculatedCumulatives = {};
 function getCumulativePlacement (localPlacementUri) {
-    if (localPlacementUri in calculatedCumulatives) {
-        return calculatedCumulatives[localPlacementUri];
-    } else {
-        var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
-            '<' + localPlacementUri + '> ifc:RelativePlacement ?axisPlace . ' +
-            'OPTIONAL { <' + localPlacementUri + '> ifc:PlacementRelTo ?next } . ' +
-            '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
-            '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
-            '?xcoord ifc:hasListContent ?xlm . ' +
-            '?xlm ifc:has_double ?x . ' +
-            '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
-            '?ycoord ifc:hasListContent ?ylm . ' +
-            '?ylm ifc:has_double ?y . ' +
-            '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
-            '?zcoord ifc:hasListContent ?zlm . ' +
-            '?zlm ifc:has_double ?z . ' +
-            '}';
-        var coords = sparql.simpleQuery(query)[0];
-        var coordinates = {
-            x: parseFloat(coords.x.value),
-            y: parseFloat(coords.y.value),
-            z: parseFloat(coords.z.value)
-        };
-        if (["next"] in coords) {
-            var cumulativeCoords = getCumulativePlacement(coords["next"].value);
-            coordinates.x += cumulativeCoords.x;
-            coordinates.y += cumulativeCoords.y;
-            coordinates.z += cumulativeCoords.z;
-        }
-        calculatedCumulatives[localPlacementUri] = coordinates;
-        return coordinates;
+    var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
+        '<' + localPlacementUri + '> ifc:PlacementRelTo*/ifc:RelativePlacement ?axisPlace . ' +
+        '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
+        '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
+        '?xcoord ifc:hasListContent ?xlm . ' +
+        '?xlm ifc:has_double ?x . ' +
+        '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
+        '?ycoord ifc:hasListContent ?ylm . ' +
+        '?ylm ifc:has_double ?y . ' +
+        '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
+        '?zcoord ifc:hasListContent ?zlm . ' +
+        '?zlm ifc:has_double ?z . ' +
+        '}';
+    var coord_results = sparql.simpleQuery(query);
+    var coords = coord_results[0];
+    var coordinates = {
+        x: parseFloat(coords.x.value),
+        y: parseFloat(coords.y.value),
+        z: parseFloat(coords.z.value)
+    };
+    for(var i = 1; i < coord_results.length; i++) {
+        coords = coord_results[i];
+        coordinates.x += parseFloat(coords.x.value);
+        coordinates.y += parseFloat(coords.y.value);
+        coordinates.z += parseFloat(coords.z.value);
     }
+    return coordinates;
 }
 
 function getCoordinatesFromList (uri, offset) {
@@ -385,12 +378,13 @@ function getCoordinatesFromList (uri, offset) {
     }
     var coordinates = [];
     var nextUri = "";
-    var query = 'SELECT ?next ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
+    var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
         'WHERE { ' +
-        'OPTIONAL { ' +
-        '{ <' + uri + '> ifc:hasNext ?next } UNION { <' + uri + '> ifc:isFollowedBy ?next }} . ' +
+        '{ <' + uri + '> ifc:hasListContent ?point } ' +
+        'UNION { <' + uri + '> ifc:hasNext+/ifc:hasListContent ?point } ' +
+        'UNION { <' + uri + '> ifc:isFollowedBy+/ifc:hasListContent ?point } ' +
+        '. ' +
         '{ ' +
-            '<' + uri + '> ifc:hasListContent ?point . ' +
             '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
             '?loop ifc:hasListContent ?x . ' +
             '?loop ifc:hasNext ?loop2 . ' +
@@ -400,7 +394,6 @@ function getCoordinatesFromList (uri, offset) {
                 '?loop3 ifc:hasListContent ?z . ' +
             '} ' +
         '} UNION { ' +
-            '<' + uri + '> ifc:hasListContent ?point . ' +
             '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
             '?loop ifc:hasListContent ?coordx . ' +
             '?coordx ifc:has_double ?x . ' +
@@ -417,9 +410,9 @@ function getCoordinatesFromList (uri, offset) {
     var coords = sparql.simpleQuery(query);
     for (var i = 0; i < coords.length; i++) {
         var thisRow = coords[i];
-        if("next" in thisRow) {
-            nextUri = thisRow["next"].value;
-        }
+        //if("next" in thisRow) {
+        //    nextUri = thisRow["next"].value;
+        //}
         if("x" in thisRow) {
             if("z" in thisRow) {
                 coordinates.push([
@@ -436,9 +429,9 @@ function getCoordinatesFromList (uri, offset) {
             }
         }
     }
-    if(nextUri != "") {
-        coordinates = coordinates.concat(getCoordinatesFromList(nextUri, offset));
-    }
+    //if(nextUri != "") {
+    //    coordinates = coordinates.concat(getCoordinatesFromList(nextUri, offset));
+    //}
     return coordinates;
 }
 
@@ -613,7 +606,7 @@ function drawBox(coords, extraCoord, offset, material) {
 }
 
 function addRoom(uri, coordinates, roomOffset) {
-    var roomMesh = drawBox(coordinates, null, roomOffset, new THREE.MeshBasicMaterial({color: defaultColours.room.default}));
+    var roomMesh = drawBox(coordinates, null, roomOffset, new THREE.MeshBasicMaterial({color: defaultColours.room.default, transparent: true, opacity: 0.8}));
     roomMesh.uri = uri;
     scene.add(roomMesh);
     roomMesh.myType = "room";

@@ -49,7 +49,7 @@ var SPARQL = function (queryEndpointURL, updateEndpointURL, graphURI) {
     };
 
     this.sparql_query = function sparql_query (query_str, sparql) {
-        var querypart = "query=" + escape (query_str); // escape makes the string ASCII-portable
+        var querypart = "query=" + encodeURIComponent(query_str); // escape makes the string ASCII-portable
         var xmlhttp = new XMLHttpRequest (); // ajax
         xmlhttp.open ('POST', queryEndpoint, false); // GET can have caching probs, so POST. NOT ASYNCHRONOUS - WAIT
         // probably need these headers
@@ -91,7 +91,7 @@ var SPARQL = function (queryEndpointURL, updateEndpointURL, graphURI) {
     };
 
     this.sparql_update = function (query_str, sparql) {
-        var querypart = "update=" + escape (query_str); // escape makes the string ASCII-portable
+        var querypart = "update=" + encodeURIComponent(query_str); // escape makes the string ASCII-portable
         var xmlhttp = new XMLHttpRequest (); // ajax
         xmlhttp.open ('POST', updateEndpoint, false); // GET can have caching probs, so POST. NOT ASYNCHRONOUS - WAIT
         // probably need these headers
