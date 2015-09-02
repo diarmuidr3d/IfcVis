@@ -107,6 +107,7 @@ function newProject(id) {
     sensors_dict = {};
     objects = [];
     walls = [];
+    MODIFY_SENSOR.clear(null);
     var grid = new THREE.GridHelper(100, 1);
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
@@ -342,37 +343,46 @@ function animate_rooms() {
     }
 }
 
+var calculatedCumulatives = {};
 function getCumulativePlacement (localPlacementUri) {
-    var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
-        '<' + localPlacementUri + '> ifc:RelativePlacement ?axisPlace . ' +
-        'OPTIONAL { <' + localPlacementUri + '> ifc:PlacementRelTo ?next } . ' +
-        '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
-        '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
-        '?xcoord ifc:hasListContent ?xlm . ' +
-        '?xlm ifc:has_double ?x . ' +
-        '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
-        '?ycoord ifc:hasListContent ?ylm . ' +
-        '?ylm ifc:has_double ?y . ' +
-        '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
-        '?zcoord ifc:hasListContent ?zlm . ' +
-        '?zlm ifc:has_double ?z . ' +
-        '}';
-    var coords = sparql.simpleQuery(query)[0];
-    var coordinates = {
-        x: parseFloat(coords.x.value),
-        y: parseFloat(coords.y.value),
-        z: parseFloat(coords.z.value)
-    };
-    if(["next"] in coords) {
-        var cumulativeCoords = getCumulativePlacement(coords["next"].value);
-        coordinates.x += cumulativeCoords.x;
-        coordinates.y += cumulativeCoords.y;
-        coordinates.z += cumulativeCoords.z;
+    if (localPlacementUri in calculatedCumulatives) {
+        return calculatedCumulatives[localPlacementUri];
+    } else {
+        var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
+            '<' + localPlacementUri + '> ifc:RelativePlacement ?axisPlace . ' +
+            'OPTIONAL { <' + localPlacementUri + '> ifc:PlacementRelTo ?next } . ' +
+            '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
+            '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
+            '?xcoord ifc:hasListContent ?xlm . ' +
+            '?xlm ifc:has_double ?x . ' +
+            '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
+            '?ycoord ifc:hasListContent ?ylm . ' +
+            '?ylm ifc:has_double ?y . ' +
+            '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
+            '?zcoord ifc:hasListContent ?zlm . ' +
+            '?zlm ifc:has_double ?z . ' +
+            '}';
+        var coords = sparql.simpleQuery(query)[0];
+        var coordinates = {
+            x: parseFloat(coords.x.value),
+            y: parseFloat(coords.y.value),
+            z: parseFloat(coords.z.value)
+        };
+        if (["next"] in coords) {
+            var cumulativeCoords = getCumulativePlacement(coords["next"].value);
+            coordinates.x += cumulativeCoords.x;
+            coordinates.y += cumulativeCoords.y;
+            coordinates.z += cumulativeCoords.z;
+        }
+        calculatedCumulatives[localPlacementUri] = coordinates;
+        return coordinates;
     }
-    return coordinates;
 }
 
-function getCoordinatesFromList (uri) {
+function getCoordinatesFromList (uri, offset) {
+    if(offset == null) {
+        offset = {x: 0, y: 0, z: 0};
+    }
     var coordinates = [];
     var nextUri = "";
     var query = 'SELECT ?next ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
@@ -412,14 +422,22 @@ function getCoordinatesFromList (uri) {
         }
         if("x" in thisRow) {
             if("z" in thisRow) {
-                coordinates.push([parseFloat(thisRow.x.value), parseFloat(thisRow.y.value), parseFloat(thisRow.z.value)]);
+                coordinates.push([
+                    parseFloat(thisRow.x.value) + offset.x,
+                    parseFloat(thisRow.y.value) + offset.y,
+                    parseFloat(thisRow.z.value) + offset.z
+                ]);
             } else {
-                coordinates.push([parseFloat(thisRow.x.value), parseFloat(thisRow.y.value)]);
+                coordinates.push([
+                    parseFloat(thisRow.x.value) + offset.x,
+                    parseFloat(thisRow.y.value) + offset.y,
+                    offset.z
+                ]);
             }
         }
     }
     if(nextUri != "") {
-        coordinates = coordinates.concat(getCoordinatesFromList(nextUri));
+        coordinates = coordinates.concat(getCoordinatesFromList(nextUri, offset));
     }
     return coordinates;
 }
@@ -428,61 +446,64 @@ var wallMaterial = new THREE.MeshBasicMaterial({color: 0x00ff00, transparent: tr
 var openingMaterial = new THREE.MeshBasicMaterial({color: 0x0000ff, transparent: true, opacity: 0.2});
 
 function addWallsForRoom (room_uri) {
-
-    this.addWall = function (sectionUri, wallUri) {
-        query = 'SELECT ?coordsUri FROM <'+sparql.getGraph()+'> WHERE { ' +
-            '{ ' +
-                '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
-            '} UNION {' +
-                '<'+sectionUri+'> ifc:ConnectionGeometry_of_IfcRelSpaceBoundary ?csg . ' +
-            '} ' +
-            '?csg ifc:SurfaceOnRelatingElement ?cbp . ' +
-            '{ ' +
-                '?cbp ifc:OuterBoundary ?line . ' +
-            '} UNION { ' +
-                '?cbp ifc:OuterBoundary_of_IfcCurveBoundedPlane ?line . ' +
-            '} UNION { ' +
-                '?cbp ifc:SweptCurve ?curve . ' +
-                '?curve ifc:Curve ?line . ' +
-                '?cbp ifc:Depth_of_ifcSurfaceOfLinearExtrusion ?depth . ' +
-            '} ' +
-            '?line ifc:Points ?coordsUri . ' +
-            '}';
-        var coords = sparql.simpleQuery(query);
-        if(coords.length > 0) {
-            var coordinates = [];
-            var coord = coords[0];
-            if ("coordsUri" in coord) {
-                coordinates = getCoordinatesFromList(coord["coordsUri"].value);
-            }
-            if("depth" in coord) {
-                coordinates.push([coordinates[1][0], coordinates[1][1], parseFloat(coord.depth.value)]);
-                coordinates.push([coordinates[0][0], coordinates[0][1], parseFloat(coord.depth.value)]);
-            }
-            if (coordinates.length > 2) {
-                var wallMesh = drawUprightBox(coordinates, null, wallMaterial);
-                wallMesh.uri = wallUri;
-                wallMesh.renderOrder = 1;
-                scene.add(wallMesh);
-                walls.push(wallMesh);
-            }
-        }
-    };
-
-    var query = 'SELECT ?section ?wall FROM <'+sparql.getGraph()+'> WHERE { ' +
+    var query = 'SELECT ?section ?wall ?place FROM <'+sparql.getGraph()+'> WHERE { ' +
         '{ ' +
             '?bound ifc:RelatingSpace <' + room_uri +'> . ' +
             '?bound rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
             '?bound ifc:InnerBoundaries ?section . ' +
             '?section ifc:RelatedBuildingElement ?wall . ' +
+            'OPTIONAL { ?wall ifc:ObjectPlacement ?place } . ' +
         '} UNION { ' +
             '?section ifc:RelatingSpace <' + room_uri +'> . ' +
             '?section ifc:RelatedBuildingElement_of_IfcRelSpaceBoundary ?wall . ' +
+            'OPTIONAL { ?wall ifc:ObjectPlacement ?place } . ' +
         '}' +
         '}';
     var boundary_results = sparql.simpleQuery(query);
+    var sectionUri, offset = null, thisRow;
     for (var i = 0; i < boundary_results.length; i++) {
-        this.addWall(boundary_results[i]["section"].value, boundary_results[i]["wall"].value);
+        thisRow = boundary_results[i];
+        sectionUri = thisRow["section"].value;
+        query = 'SELECT ?coordsUri FROM <'+sparql.getGraph()+'> WHERE { ' +
+            '{ ' +
+            '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
+            '} UNION {' +
+            '<'+sectionUri+'> ifc:ConnectionGeometry_of_IfcRelSpaceBoundary ?csg . ' +
+            '} ' +
+            '?csg ifc:SurfaceOnRelatingElement ?cbp . ' +
+            '{ ' +
+            '?cbp ifc:OuterBoundary ?line . ' +
+            '} UNION { ' +
+            '?cbp ifc:OuterBoundary_of_IfcCurveBoundedPlane ?line . ' +
+            '} UNION { ' +
+            '?cbp ifc:SweptCurve ?curve . ' +
+            '?curve ifc:Curve ?line . ' +
+            '?cbp ifc:Depth_of_ifcSurfaceOfLinearExtrusion ?depth . ' +
+            '} ' +
+            '?line ifc:Points ?coordsUri . ' +
+            '}';
+        var coords = sparql.simpleQuery(query);
+        if(coords.length > 0) {
+            if("place" in thisRow) {
+                offset = getCumulativePlacement(thisRow["place"].value);
+            }
+            var coordinates = [];
+            var coord = coords[0];
+            if ("coordsUri" in coord) {
+                coordinates = getCoordinatesFromList(coord["coordsUri"].value, offset);
+            }
+            if("depth" in coord) {
+                coordinates.push([coordinates[1][0] + offset.x, coordinates[1][1] + offset.y, parseFloat(coord.depth.value) + offset.z]);
+                coordinates.push([coordinates[0][0] + offset.x, coordinates[0][1] + offset.y, parseFloat(coord.depth.value) + offset.z]);
+            }
+            if (coordinates.length > 2) {
+                var wallMesh = drawUprightBox(coordinates, null, wallMaterial);
+                wallMesh.uri = thisRow["wall"].value;
+                wallMesh.renderOrder = 1;
+                scene.add(wallMesh);
+                walls.push(wallMesh);
+            }
+        }
         addOpening(boundary_results[i]["wall"].value);
     }
 }
