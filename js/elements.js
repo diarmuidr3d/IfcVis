@@ -284,10 +284,12 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
 
         this.clear = function (sensorUriToDisplay) {
             addingSensor = false;
-            ROOM_DETAILS.getSensors(myCam.zoom.lastObject.uri);
+            if(sensorUriToDisplay != null) {
+                ROOM_DETAILS.getSensors(myCam.zoom.lastObject.uri);
+                document.getElementById(sensorUriToDisplay).classList.add("success");
+                SENSOR_DETAILS.display(sensorUriToDisplay);
+            }
             this.selectSensor(sensorUriToDisplay);
-            document.getElementById(sensorUriToDisplay).classList.add("success");
-            SENSOR_DETAILS.display(sensorUriToDisplay);
         };
     };
 
