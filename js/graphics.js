@@ -235,6 +235,7 @@ function onClick (event) {
         creating = true;
     } else if (clickedCoords[0][0] == x && clickedCoords[0][1] == y) {
         creating = false;
+        addingRoom = false;
         scene.remove(addedObj);
         scene.add(drawBox(clickedCoords, null, null, new THREE.MeshBasicMaterial({color: 0xff0000})));
         addedObj = null;
