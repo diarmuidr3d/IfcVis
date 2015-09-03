@@ -403,7 +403,7 @@ ROOM_DETAILS.getSensors = function (room_uri) {
             '   OPTIONAL { ?x rdfs:label ?name } . ' +
             '}';
         sensorSelector += '<table class="table table-hover">' +
-            '<thead><tr><th>Sensor Names</th></tr></thead>' +
+            '<thead><tr><th>Sensor Names of ' + room_uri + '</th></tr></thead>' +
             '<tbody>';
         var results = sparql.simpleQuery(query);
         for (var i = 0; i < results.length; i++) {
@@ -501,8 +501,12 @@ ROOM_DETAILS.addRoom = function () {
     var pointListUri = polyUri + "_ptlist_";
     var containerUri = DEST_URI + "contained_in_" + name;
     var boundaryUri = uri + "_boundary";
-    if (clickedCoords.length > 2) {
+    if (clickedCoords.length > 2 /*&&
+        clickedCoords[0][0] == clickedCoords[clickedCoords.length][0] &&
+        clickedCoords[0][1] == clickedCoords[clickedCoords.length][1]*/
+    ) {
         clickedCoords.push([clickedCoords[0][0], clickedCoords[0][1]]);
+        console.log("adding Room");
         var query = 'WITH <' + sparql.getGraph() + '> DELETE {} INSERT {' +
             '<'+uri+'> rdf:type ifc:IfcSpace . ' +
             '<'+uri+'> rdfs:label "'+name+'" . ' +

@@ -90,30 +90,40 @@ function init() {
     getUriToDisplay();
 }
 
-function getUriToDisplay () {
+function getUriToDisplay (notUrl) {
     document.getElementById(detailsName).innerHTML = '<form role="form" id="getNs"> ' +
         '<div class="form-group"> ' +
         '<label for="name">Enter NameSpace:</label> ' +
         '<input type="text" class="form-control" id="name"> ' +
         '<button type="submit" class="btn btn-default" onClick=newProject("getNs"); >Load</button></form>';
+    if(notUrl) {
+        document.getElementById(detailsName).innerHTML = '<div class="alert alert-info"> ' +
+        '<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>' +
+        '<strong>Please enter a URL</strong> The value you entered did not appear to be a URL!</div>' +
+        document.getElementById(detailsName).innerHTML;
+    }
 }
 
 function newProject(id) {
     DEST_URI = document.getElementById(id).elements[0].value;
-    document.getElementById(detailsName).innerHTML = "Loading...";
-    myCam = new CAMERA(width / height);
-    scene = new THREE.Scene();
-    sensors_dict = {};
-    objects = [];
-    walls = [];
-    MODIFY_SENSOR.clear(null);
-    var grid = new THREE.GridHelper(100, 1);
-    grid.rotation.x = Math.PI / 2;
-    scene.add(grid);
-    animate_sensors();
-    animate_rooms();
-    document.getElementById(detailsName).innerHTML = "";
-    render();
+    if(null == DEST_URI.match(/^https?:\/\/([\da-z\.-]+)\.([a-z]{2,6})([\/\w\.-]+)[\/#]?$/)) {
+        getUriToDisplay(true);
+    } else {
+        document.getElementById(detailsName).innerHTML = "Loading...";
+        myCam = new CAMERA(width / height);
+        scene = new THREE.Scene();
+        sensors_dict = {};
+        objects = [];
+        walls = [];
+        MODIFY_SENSOR.clear(null);
+        var grid = new THREE.GridHelper(100, 1);
+        grid.rotation.x = Math.PI / 2;
+        scene.add(grid);
+        animate_sensors();
+        animate_rooms();
+        document.getElementById(detailsName).innerHTML = "";
+        render();
+    }
 }
 
 function render() {
@@ -294,8 +304,21 @@ function addSensor (uri, x, y) {
 function animate_rooms() {
     var query = 'PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>'+
         'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
-        'SELECT ?room ?placement FROM <'+sparql.getGraph()+'> '+
+        'SELECT ?room ?placement ?ptlist FROM <'+sparql.getGraph()+'> '+
         'WHERE { ?room rdf:type ifc:IfcSpace . ' +
+        '?room ifc:Representation ?rep . '+
+        '?rep ifc:Representations ?repList . ' +
+        '?repList ifc:hasListContent ?a . '+
+        '?a ifc:Items ?z . '+
+        '{ ' +
+        '?z ifc:Bounds ?s . '+
+        '?s ifc:Bound ?t . '+
+        '?t ifc:Polygon ?ptlist . ' +
+        '} UNION { ' +
+        '?z ifc:SweptArea ?area . ' +
+        '?area ifc:OuterCurve ?line . ' +
+        '?line ifc:Points ?ptlist . ' +
+        '} ' +
         'OPTIONAL {?room ifc:ObjectPlacement ?placement } . ' +
         'FILTER(STRSTARTS(STR(?room), "' + DEST_URI + '")) }';
     var results = sparql.simpleQuery(query);
@@ -303,38 +326,24 @@ function animate_rooms() {
         var room = new THREE.Shape();
         var thisRow = results[i];
         var roomName = thisRow.room.value;
-        query = 'SELECT ?ptlist FROM <'+sparql.getGraph()+'> '+
-            'WHERE { ' +
-            '<' + roomName + '> ifc:Representation ?rep . '+
-            '?rep ifc:Representations ?repList . ' +
-            '?repList ifc:hasListContent ?a . '+
-            '?a ifc:Items ?z . '+
-            '{ ' +
-                '?z ifc:Bounds ?s . '+
-                '?s ifc:Bound ?t . '+
-                '?t ifc:Polygon ?ptlist . ' +
-            '} UNION { ' +
-                '?z ifc:SweptArea ?area . ' +
-                '?area ifc:OuterCurve ?line . ' +
-                '?line ifc:Points ?ptlist . ' +
-            '}}';
-        var points = sparql.simpleQuery(query);
-        var offsetCoords = null;
-        if("placement" in thisRow) {
-            offsetCoords = getCumulativePlacement(thisRow["placement"].value);
-        }
-        if(points.length > 0) {
-            var coord_results = getCoordinatesFromList(points[0]["ptlist"].value);
-            if(coord_results.length > 0) {
-                addRoom(roomName, coord_results, offsetCoords);
+        //if(roomName == "http://linkedbuildingdata.net/ifc/instances20150430_124509#IfcSpace_1119") {
+            var offsetCoords = null;
+            if ("placement" in thisRow) {
+                offsetCoords = getCumulativePlacement(thisRow["placement"].value);
             }
-        }
-        addWallsForRoom(roomName);
+            if ("ptlist" in thisRow) {
+                var coord_results = getCoordinatesFromList(thisRow["ptlist"].value);
+                if (coord_results.length > 0) {
+                    addRoom(roomName, coord_results, offsetCoords);
+                }
+            }
+            addWallsForRoom(roomName);
+        //}
     }
 }
 
 function getCumulativePlacement (localPlacementUri) {
-    var query = 'SELECT ?x ?y ?z ?next FROM <' + sparql.getGraph() + '> WHERE { ' +
+    var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> WHERE { ' +
         '<' + localPlacementUri + '> ifc:PlacementRelTo*/ifc:RelativePlacement ?axisPlace . ' +
         '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
         '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
@@ -368,7 +377,6 @@ function getCoordinatesFromList (uri, offset) {
         offset = {x: 0, y: 0, z: 0};
     }
     var coordinates = [];
-    var nextUri = "";
     var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
         'WHERE { ' +
         '{ <' + uri + '> ifc:hasListContent ?point } ' +
@@ -430,10 +438,12 @@ function addWallsForRoom (room_uri) {
             '?bound rdf:type ifc:IfcRelSpaceBoundary2ndLevel . ' +
             '?bound ifc:InnerBoundaries ?section . ' +
             '?section ifc:RelatedBuildingElement ?wall . ' +
+            '?wall rdf:type ifc:IfcWallStandardCase . ' +
             'OPTIONAL { ?wall ifc:ObjectPlacement ?place } . ' +
         '} UNION { ' +
             '?section ifc:RelatingSpace <' + room_uri +'> . ' +
             '?section ifc:RelatedBuildingElement_of_IfcRelSpaceBoundary ?wall . ' +
+            '?wall rdf:type ifc:IfcWallStandardCase . ' +
             'OPTIONAL { ?wall ifc:ObjectPlacement ?place } . ' +
         '}' +
         '}';
@@ -442,7 +452,7 @@ function addWallsForRoom (room_uri) {
     for (var i = 0; i < boundary_results.length; i++) {
         thisRow = boundary_results[i];
         sectionUri = thisRow["section"].value;
-        query = 'SELECT ?coordsUri FROM <'+sparql.getGraph()+'> WHERE { ' +
+        query = 'SELECT ?coordsUri ?depth FROM <'+sparql.getGraph()+'> WHERE { ' +
             '{ ' +
             '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
             '} UNION {' +
@@ -456,7 +466,7 @@ function addWallsForRoom (room_uri) {
             '} UNION { ' +
             '?cbp ifc:SweptCurve ?curve . ' +
             '?curve ifc:Curve ?line . ' +
-            '?cbp ifc:Depth_of_ifcSurfaceOfLinearExtrusion ?depth . ' +
+            'OPTIONAL { ?cbp ifc:Depth_of_IfcSurfaceOfLinearExtrusion/ifc:has_double ?depth } . ' +
             '} ' +
             '?line ifc:Points ?coordsUri . ' +
             '}';
@@ -471,8 +481,8 @@ function addWallsForRoom (room_uri) {
                 coordinates = getCoordinatesFromList(coord["coordsUri"].value, offset);
             }
             if("depth" in coord) {
-                coordinates.push([coordinates[1][0] + offset.x, coordinates[1][1] + offset.y, parseFloat(coord.depth.value) + offset.z]);
-                coordinates.push([coordinates[0][0] + offset.x, coordinates[0][1] + offset.y, parseFloat(coord.depth.value) + offset.z]);
+                coordinates.push([coordinates[1][0], coordinates[1][1], parseFloat(coord.depth.value) + offset.z]);
+                coordinates.push([coordinates[0][0], coordinates[0][1], parseFloat(coord.depth.value) + offset.z]);
             }
             if (coordinates.length > 2) {
                 var wallMesh = drawUprightBox(coordinates, null, wallMaterial);
@@ -552,12 +562,13 @@ function drawUprightBox(coords, offset, material) {
         offset = {x:0, y:0, z:0};
     }
     var geometry = new THREE.Geometry();
-    var x,y;
+    var x, y,z;
     for(var i =0; i < coords.length; i++) {
         x = coords[i][0] + offset.x;
         y = coords[i][1] + offset.y;
         z = coords[i][2] + offset.z;
-        geometry.vertices.push(new THREE.Vector3( coords[i][0],  coords[i][1], coords[i][2] ));
+        //myCam.add_coord_range(x, y, z);
+        geometry.vertices.push(new THREE.Vector3( x, y, z ));
     }
     geometry.faces.push(new THREE.Face3(0, 1, 2));
     geometry.faces.push(new THREE.Face3(0, 2, 3));
@@ -582,7 +593,7 @@ function drawBox(coords, extraCoord, offset, material) {
         myCam.add_coord_range(x,y, offset.z);
     }
     if(extraCoord != null) {
-        object.lineTo(extraCoord[0] + offset.x, extraCoord[1] + offset.y);
+        box.lineTo(extraCoord[0] + offset.x, extraCoord[1] + offset.y);
     }
     var geom = new THREE.ShapeGeometry(box);
     var mesh = new THREE.Mesh( geom, material );
