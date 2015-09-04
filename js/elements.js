@@ -193,7 +193,9 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                 var axisPlaceUri = sensorUri + '_axisPlace';
                 var pointUri = sensorUri + '_point';
                 var xcoord = pointUri + '_x_list';
+                var xval = xcoord + '_val';
                 var ycoord = pointUri + '_y_list';
+                var yval = ycoord + '_val';
                 var query = 'WITH <' + sparql.getGraph() + '>' +
                     'DELETE {} ' +
                     'INSERT { ' +
@@ -205,10 +207,14 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                         '<' + pointUri + '> rdf:type ifc:IfcCartesianPoint . ' +
                         '<' + pointUri + '> ifc:Coordinates <' + xcoord + '> . ' +
                         '<' + xcoord + '> rdf:type ifc:IfcLengthMeasure_List . ' +
-                        '<' + xcoord + '> ifc:hasListContent "" . ' +
+                        '<' + xcoord + '> ifc:hasListContent <' + xval + '> . ' +
+                        '<' + xval + '> rdf:type ifc:IfcLengthMeasure . ' +
+                        '<' + xval + '> ifc:has_double "" . ' +
                         '<' + xcoord + '> ifc:hasNext <' + ycoord + '> . ' +
                         '<' + ycoord + '> rdf:type ifc:IfcLengthMeasure_List . ' +
-                        '<' + ycoord + '> ifc:hasListContent "" . ' +
+                        '<' + ycoord + '> ifc:hasListContent <' + yval + '> . ' +
+                        '<' + yval + '> rdf:type ifc:IfcLengthMeasure . ' +
+                        '<' + yval + '> ifc:has_double "" . ' +
                     '}' +
                     'WHERE {}';
                 sparql.runUpdate(query);
@@ -234,8 +240,8 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                     '<' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB . ' +
                     '?asset ifc:currentValue_of_IfcAsset ?assetVal . ' +
                     '<' + sensorUri + '> rdfs:label ?oldLabel . ' +
-                    '?xcoord ifc:hasListContent ?x . ' +
-                    '?ycoord ifc:hasListContent ?y . ' +
+                    '?xlm ifc:has_double ?x . ' +
+                    '?ylm ifc:has_double ?y . ' +
                 '} ' +
                 'INSERT { ' +
                     '<' + sensorUri + '> rdf:type ifc:' + formData.type + ' . ' +
@@ -243,24 +249,21 @@ var SENSORS = function (controlButtons, sparqlAccessor) {
                     '<' + sensorUri + '> rdfs:label "' + formData.name + '" . ' +
                     '?asset ifc:currentValue_of_IfcAsset ' + formData.value + ' . ' +
                     '?container ifc:RelatedElements_of_IfcRelContainedInSpatialStructure <' + sensorUri + '> . ' +
-                    '?xcoord ifc:hasListContent "' + formData.coords.x + '"^^ifc:IfcLengthMeasure . ' +
-                    '?ycoord ifc:hasListContent "' + formData.coords.y + '"^^ifc:IfcLengthMeasure . ' +
+                    '?xlm ifc:has_double "' + formData.coords.x + '" . ' +
+                    '?ylm ifc:has_double "' + formData.coords.y + '" . ' +
                 '} ' +
                 'WHERE { ' +
                     'OPTIONAL { ' +
-                        '<' + sensorUri + '> ifc:ObjectPlacement ?placement . ' +
-                        '?placement ifc:RelativePlacement ?relPlace . ' +
-                        '?relPlace ifc:Location ?pointList . ' +
-                        '?pointList ifc:Coordinates ?xcoord . ' +
-                        '?xcoord ifc:hasListContent ?x . ' +
-                        '?xcoord ifc:hasNext ?ycoord . ' +
-                        '?ycoord ifc:hasListContent ?y . ' +
+                        '<' + sensorUri + '> ifc:ObjectPlacement/ifc:RelativePlacement/ifc:Location/ifc:Coordinates ?xcoord . ' +
+                        '?xcoord ifc:hasListContent ?xlm . ' +
+                        '?xlm ifc:has_double ?x . ' +
+                        '?xcoord ifc:hasNext/ifc:hasListContent ?ylm . ' +
+                        '?ylm ifc:has_double ?y . ' +
                     '} . ' +
                     'OPTIONAL { <' + sensorUri + '> rdf:type ?oldType } . ' +
                     'OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcSensor ?enumTypeA } . ' +
                     'OPTIONAL { <' + sensorUri + '> ifc:PredefinedType_of_IfcFlowMeter ?enumTypeB } . ' +
-                    'OPTIONAL { <' + sensorUri + '> ifc:HasAssignments ?rag . ' +
-                        '?rag ifc:RelatingGroup ?asset . ' +
+                    'OPTIONAL { <' + sensorUri + '> ifc:HasAssignments/ifc:RelatingGroup ?asset . ' +
                         '?asset ifc:currentValue_of_IfcAsset ?assetVal ' +
                     '} . ' +
                     '?container ifc:RelatingStructure_of_IfcRelContainedInSpatialStructure <' + myCam.zoom.lastObject.uri + '> . ' +
@@ -485,8 +488,11 @@ ROOM_DETAILS.addRoom = function () {
         return pointList;
     };
     this.createCoordList = function (coordVal, name) {
+        var val = name + '_val';
         query += '<' + name + '> rdf:type ifc:IfcLengthMeasure_List . ' +
-            '<' + name + '> ifc:hasListContent "' + coordVal + '"^^ifc:IfcLengthMeasure . '
+            '<' + name + '> ifc:hasListContent <' + val + '> . ' +
+            '<' + val + '> rdf:type ifc:IfcLengthMeasure . ' +
+            '<' + val + '> ifc:has_double "' + coordVal + '" . '
     };
 
     var form = document.getElementById("newRoom");
@@ -530,7 +536,9 @@ ROOM_DETAILS.addRoom = function () {
             var thisPointListUri = pointListUri + i;
             var pointUri = thisPointListUri + "_point";
             var xPoint = pointUri + '_x';
+            var x = xPoint + '_val';
             var yPoint = pointUri + '_y';
+            var y = yPoint + '_val';
             if (i == 0) {
                 query += '<' + polyUri + '> ifc:Polygon <' + thisPointListUri + '> . ';
             }
@@ -539,10 +547,14 @@ ROOM_DETAILS.addRoom = function () {
                 '<' + thisPointListUri + '> ifc:hasListContent <' + pointUri + '> . ' +
                 '<' + pointUri + '> ifc:Coordinates_of_IfcCartesianPoint <' + xPoint + '> . ' +
                 '<' + xPoint + '> rdf:type ifc:IfcLengthMeasureList . ' +
-                '<' + xPoint + '> ifc:hasListContent "' + clickedCoords[i][0] + '"^^ifc:IfcLengthMeasure . ' +
+                '<' + xPoint + '> ifc:hasListContent <' + x + '> . ' +
+                '<' + x + '> rdf:type ifc:IfcLengthMeasure . ' +
+                '<' + x + '> ifc:has_double "' + clickedCoords[i][0] + '" . ' +
                 '<' + xPoint + '> ifc:hasNext <' + yPoint + '> . ' +
                 '<' + yPoint + '> rdf:type ifc:IfcLengthMeasureList . ' +
-                '<' + yPoint + '> ifc:hasListContent "' + clickedCoords[i][1] + '"^^ifc:IfcLengthMeasure . ';
+                '<' + yPoint + '> ifc:hasListContent <' + y + '> . ' +
+                '<' + y + '> rdf:type ifc:IfcLengthMeasure . ' +
+                '<' + y + '> ifc:has_double "' + clickedCoords[i][1] + '" . ';
             if(i != clickedCoords.length - 1) {
                 var thisWall = uri + "_wall_" + i;
                 var nextPointListUri = pointListUri + (i + 1);
@@ -682,18 +694,30 @@ ROOM_DETAILS.addOpening = function () {
         var next = parseInt(i) + 1;
         var nextPointListUri = pointListUri + next;
         var xcoordsUri = thisPointListUri + 'x';
+        var xval = xcoordsUri + '_val';
         var ycoordsUri = thisPointListUri + 'y';
+        var yval = ycoordsUri + '_val';
         var zcoordsUri = thisPointListUri + 'z';
+        var zval = zcoordsUri + '_val';
         var pointUri = thisPointListUri + '_point';
         var coord = clickedCoordsForWall[i];
-        query += '<'+thisPointListUri+'> ifc:hasListContent <'+pointUri+'> . ' +
-            '<'+pointUri+'> ifc:Coordinates <'+xcoordsUri+'> . ' +
-            '<'+xcoordsUri+'> ifc:hasListContent "' + coord[0] + '"^^ifc:IfcLengthMeasure . ' +
-            '<'+xcoordsUri+'> ifc:hasNext <'+ycoordsUri+'> . ' +
-            '<'+ycoordsUri+'> ifc:hasListContent "' + coord[1] + '"^^ifc:IfcLengthMeasure . ';
+        query += '<' + thisPointListUri + '> ifc:hasListContent <' + pointUri + '> . ' +
+            '<' + pointUri + '> ifc:Coordinates <' + xcoordsUri + '> . ' +
+            '<' + xcoordsUri + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+            '<' + xcoordsUri + '> ifc:hasListContent <' + xval + '> . ' +
+            '<' + xval + '> rdf:type ifc:IfcLengthMeasure . ' +
+            '<' + xval + '> ifc:has_double "' + coord[0] + '" . ' +
+            '<' + xcoordsUri + '> ifc:hasNext <' + ycoordsUri + '> . ' +
+            '<' + ycoordsUri + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+            '<' + ycoordsUri + '> ifc:hasListContent <' + yval + '> . ' +
+            '<' + yval + '> rdf:type ifc:IfcLengthMeasure . ' +
+            '<' + yval + '> ifc:has_double "' + coord[1] + '" . ';
         if(coord.length > 2) {
             query += '<' + ycoordsUri + '> ifc:hasNext <' + zcoordsUri + '> . ' +
-                '<' + zcoordsUri + '> ifc:hasListContent "' + coord[2] + '"^^ifc:IfcLengthMeasure . ';
+                '<' + zcoordsUri + '> rdf:type ifc:IfcLengthMeasure_List . ' +
+                '<' + zcoordsUri + '> ifc:hasListContent <' + zval + '> . ' +
+                '<' + zval + '> rdf:type ifc:IfcLengthMeasure . ' +
+                '<' + zval + '> ifc:has_double "' + coord[2] + '" . ';
         }
         if(i != clickedCoordsForWall.length - 1) {
             query += '<'+thisPointListUri+'> ifc:hasNext <'+nextPointListUri+'> . '

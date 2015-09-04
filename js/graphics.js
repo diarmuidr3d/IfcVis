@@ -80,9 +80,9 @@ function init() {
         '?placement ifc:RelativePlacement ?relPlace . ' +
         '?relPlace ifc:Location ?pointList . ' +
         '?pointList ifc:Coordinates ?xcoord . ' +
-        '?xcoord ifc:hasListContent ?x . ' +
+        '?xcoord ifc:hasListContent/ifc:has_double ?x . ' +
         '?xcoord ifc:hasNext ?ycoord . ' +
-        '?ycoord ifc:hasListContent ?y . ' +
+        '?ycoord ifc:hasListContent/ifc:has_double ?y . ' +
         'BIND (fn:concat(?x, ", ", ?y) AS '+SENSOR_DETAILS.param.val+')');
 
     fullscreenOn = true;
@@ -272,13 +272,9 @@ function onMouseMove (event) {
 function animate_sensors() {
     var query = 'SELECT ?sensor ?x ?y FROM <' + sparql.getGraph() + '> WHERE { ' +
         '{ ?sensor rdf:type ifc:IfcSensor } UNION { ?sensor rdf:type ifc:IfcFlowMeter } . ' +
-        '?sensor ifc:ObjectPlacement ?placement . ' +
-        '?placement ifc:RelativePlacement ?relPlace . ' +
-        '?relPlace ifc:Location ?pointList . ' +
-        '?pointList ifc:Coordinates ?xcoord . ' +
-        '?xcoord ifc:hasListContent ?x . ' +
-        '?xcoord ifc:hasNext ?ycoord . ' +
-        '?ycoord ifc:hasListContent ?y . ' +
+        '?sensor ifc:ObjectPlacement/ifc:RelativePlacement/ifc:Location/ifc:Coordinates ?xcoord . ' +
+        '?xcoord ifc:hasListContent/ifc:has_double ?x . ' +
+        '?xcoord ifc:hasNext/ifc:hasListContent/ifc:has_double ?y . ' +
         'FILTER(STRSTARTS(STR(?sensor), "' + DEST_URI + '")) . ' +
         '} ';
     var results = sparql.simpleQuery(query);
@@ -307,18 +303,11 @@ function animate_rooms() {
         'PREFIX ifc: <http://www.buildingsmart-tech.org/ifcOWL#>'+
         'SELECT ?room ?placement ?ptlist FROM <'+sparql.getGraph()+'> '+
         'WHERE { ?room rdf:type ifc:IfcSpace . ' +
-        '?room ifc:Representation ?rep . '+
-        '?rep ifc:Representations ?repList . ' +
-        '?repList ifc:hasListContent ?a . '+
-        '?a ifc:Items ?z . '+
+        '?room ifc:Representation/ifc:Representations/ifc:hasListContent/ifc:Items ?item . '+
         '{ ' +
-        '?z ifc:Bounds ?s . '+
-        '?s ifc:Bound ?t . '+
-        '?t ifc:Polygon ?ptlist . ' +
+        '?item ifc:Bounds/ifc:Bound/ifc:Polygon ?ptlist . ' +
         '} UNION { ' +
-        '?z ifc:SweptArea ?area . ' +
-        '?area ifc:OuterCurve ?line . ' +
-        '?line ifc:Points ?ptlist . ' +
+        '?item ifc:SweptArea/ifc:OuterCurve/ifc:Points ?ptlist . ' +
         '} ' +
         'OPTIONAL {?room ifc:ObjectPlacement ?placement } . ' +
         'FILTER(STRSTARTS(STR(?room), "' + DEST_URI + '")) }';
@@ -346,16 +335,12 @@ function animate_rooms() {
 function getCumulativePlacement (localPlacementUri) {
     var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> WHERE { ' +
         '<' + localPlacementUri + '> ifc:PlacementRelTo*/ifc:RelativePlacement ?axisPlace . ' +
-        '?axisPlace ifc:Location_of_IfcPlacement ?point . ' +
-        '?point ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
-        '?xcoord ifc:hasListContent ?xlm . ' +
-        '?xlm ifc:has_double ?x . ' +
+        '?axisPlace ifc:Location_of_IfcPlacement/ifc:Coordinates_of_IfcCartesianPoint ?xcoord . ' +
+        '?xcoord ifc:hasListContent/ifc:has_double ?x . ' +
         '{ ?xcoord ifc:hasNext ?ycoord } UNION { ?xcoord ifc:isFollowedBy ?ycoord } . ' +
-        '?ycoord ifc:hasListContent ?ylm . ' +
-        '?ylm ifc:has_double ?y . ' +
+        '?ycoord ifc:hasListContent/ifc:has_double ?y . ' +
         '{ ?ycoord ifc:hasNext ?zcoord } UNION { ?ycoord ifc:isFollowedBy ?zcoord }. ' +
-        '?zcoord ifc:hasListContent ?zlm . ' +
-        '?zlm ifc:has_double ?z . ' +
+        '?zcoord ifc:hasListContent/ifc:has_double ?z . ' +
         '}';
     var coord_results = sparql.simpleQuery(query);
     var coords = coord_results[0];
@@ -380,31 +365,13 @@ function getCoordinatesFromList (uri, offset) {
     var coordinates = [];
     var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> ' +
         'WHERE { ' +
-        '{ <' + uri + '> ifc:hasListContent ?point } ' +
-        'UNION { <' + uri + '> ifc:hasNext+/ifc:hasListContent ?point } ' +
-        'UNION { <' + uri + '> ifc:isFollowedBy+/ifc:hasListContent ?point } ' +
-        '. ' +
-        '{ ' +
-            '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
-            '?loop ifc:hasListContent ?x . ' +
-            '?loop ifc:hasNext ?loop2 . ' +
-            '?loop2 ifc:hasListContent ?y . ' +
-            'OPTIONAL { ' +
-                '?loop2 ifc:hasNext ?loop3 . ' +
-                '?loop3 ifc:hasListContent ?z . ' +
-            '} ' +
-        '} UNION { ' +
-            '{ ?point ifc:Coordinates_of_IfcCartesianPoint ?loop . } UNION { ?point ifc:Coordinates ?loop . } . ' +
-            '?loop ifc:hasListContent ?coordx . ' +
-            '?coordx ifc:has_double ?x . ' +
-            '?loop ifc:isFollowedBy ?loop2 . ' +
-            '?loop2 ifc:hasListContent ?coordy . ' +
-            '?coordy ifc:has_double ?y . ' +
-            'OPTIONAL { ' +
-                '?loop2 ifc:isFollowedBy ?loop3 . ' +
-                '?loop3 ifc:hasListContent ?coordz . ' +
-                '?coordz ifc:has_double ?z . ' +
-            '}' +
+        '<' + uri + '> (ifc:hasNext|ifc:isFollowedBy)*/ifc:hasListContent/' +
+        '(ifc:Coordinates_of_IfcCartesianPoint|ifc:Coordinates) ?loop . ' +
+        '?loop ifc:hasListContent/ifc:has_double ?x . ' +
+        '?loop ifc:hasNext|ifc:isFollowedBy ?loop2 . ' +
+        '?loop2 ifc:hasListContent/ifc:has_double ?y . ' +
+        'OPTIONAL { ' +
+            '?loop2 (ifc:hasNext|ifc:isFollowedBy)/ifc:hasListContent/ifc:has_double ?z . ' +
         '} ' +
         '}';
     var coords = sparql.simpleQuery(query);
@@ -454,21 +421,10 @@ function addWallsForRoom (room_uri) {
         thisRow = boundary_results[i];
         sectionUri = thisRow["section"].value;
         query = 'SELECT ?coordsUri ?depth FROM <'+sparql.getGraph()+'> WHERE { ' +
-            '{ ' +
-            '<'+sectionUri+'> ifc:ConnectionGeometry ?csg . ' +
-            '} UNION {' +
-            '<'+sectionUri+'> ifc:ConnectionGeometry_of_IfcRelSpaceBoundary ?csg . ' +
-            '} ' +
-            '?csg ifc:SurfaceOnRelatingElement ?cbp . ' +
-            '{ ' +
-            '?cbp ifc:OuterBoundary ?line . ' +
-            '} UNION { ' +
-            '?cbp ifc:OuterBoundary_of_IfcCurveBoundedPlane ?line . ' +
-            '} UNION { ' +
-            '?cbp ifc:SweptCurve ?curve . ' +
-            '?curve ifc:Curve ?line . ' +
+            '<'+sectionUri+'> (ifc:ConnectionGeometry|ifc:ConnectionGeometry_of_IfcRelSpaceBoundary)/' +
+            'ifc:SurfaceOnRelatingElement ?cbp . ' +
+            '?cbp ifc:OuterBoundary|ifc:OuterBoundary_of_IfcCurveBoundedPlane|(ifc:SweptCurve/ifc:Curve) ?line . ' +
             'OPTIONAL { ?cbp ifc:Depth_of_IfcSurfaceOfLinearExtrusion/ifc:has_double ?depth } . ' +
-            '} ' +
             '?line ifc:Points ?coordsUri . ' +
             '}';
         var coords = sparql.simpleQuery(query);
@@ -499,39 +455,24 @@ function addWallsForRoom (room_uri) {
 
 function addOpening (wallUri) {
     this.addDoor = function (doorUri) {
-        query = 'SELECT ?x0 ?y0 ?x1 ?x2 ?x3 ?y1 ?y2 ?y3 ?z0 ?z1 ?z2 ?z3 FROM <' + sparql.getGraph() + '> WHERE { ' +
-            '<'+doorUri+'> ifc:Representation ?repList . ' +
-            '?repList ifc:hasListContent ?rep . ' +
-            '?rep ifc:Items ?line . ' +
-            '?line ifc:Points ?pointList0 . ';
-        for(var i = 0; i < 4; i++) {
-            query +=
-                '?pointList' + i + ' ifc:hasListContent ?point' + i + ' . ' +
-                '?point' + i + ' ifc:Coordinates ?lengthList' + i + 'x . ' +
-                '?lengthList' + i + 'x ifc:hasListContent ?x' + i + ' . ' +
-                '?lengthList' + i + 'x ifc:hasNext ?lengthList' + i + 'y . ' +
-                '?lengthList' + i + 'y ifc:hasListContent ?y' + i + ' . ' +
-                '?lengthList' + i + 'y ifc:hasNext ?lengthList' + i + 'z . ' +
-                '?lengthList' + i + 'z ifc:hasListContent ?z' + i + ' . ';
-            if (i != 3) {
-                var next = i + 1;
-                query += '?pointList' + i + ' ifc:hasNext ?pointList' + next + ' .' ;
-            }
-        }
-        query += ' } ';
+        var query = 'SELECT ?x ?y ?z FROM <' + sparql.getGraph() + '> WHERE { ' +
+            '<'+doorUri+'> ifc:Representation/ifc:hasListContent/ifc:Items/ifc:Points/ifc:hasNext*/' +
+            'ifc:hasListContent/ifc:Coordinates ?lengthListx . ' +
+            '?lengthListx ifc:hasListContent/ifc:has_double ?x . ' +
+            '?lengthListx ifc:hasNext ?lengthListy . ' +
+            '?lengthListy ifc:hasListContent/ifc:has_double ?y . ' +
+            '?lengthListy ifc:hasNext/ifc:hasListContent/ifc:has_double ?z . ' +
+            '}';
         var results = sparql.simpleQuery(query);
         if(results.length > 0) {
             var coords = [];
-            for (var j = 0; j < 4; j++) {
-                var x = 'x' + j;
-                var y = 'y' + j;
-                var z = 'z' + j;
-                coords.push([results[0][x].value, results[0][y].value, results[0][z].value]);
+            for (var j = 0; j < results.length; j++) {
+                coords.push([results[j]["x"].value, results[j]["y"].value, results[j]["z"].value]);
                 var point = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.1),
                     new THREE.MeshBasicMaterial({color: 0xff0000}));
-                point.position.x = results[0][x].value;
-                point.position.y = results[0][y].value;
-                point.position.z = results[0][z].value;
+                point.position.x = results[j]["x"].value;
+                point.position.y = results[j]["y"].value;
+                point.position.z = results[j]["z"].value;
                 scene.add(point);
             }
             var opening = drawUprightBox(coords, null, openingMaterial);
@@ -540,10 +481,7 @@ function addOpening (wallUri) {
     };
 
     var query = 'SELECT ?windoor ?type FROM <' + sparql.getGraph() + '> WHERE { ' +
-        '<'+wallUri+'> ifc:HasOpenings ?void . ' +
-        '?void ifc:RelatedOpeningElement ?open . ' +
-        '?open ifc:HasFillings ?fill . ' +
-        '?fill ifc:RelatedBuildingElement ?windoor . ' +
+        '<'+wallUri+'> ifc:HasOpenings/ifc:RelatedOpeningElement/ifc:HasFillings/ifc:RelatedBuildingElement ?windoor . ' +
         '?windoor rdf:type ?type . ' +
         '}';
     var results = sparql.simpleQuery(query);
@@ -696,8 +634,6 @@ var CAMERA = function (aspectRatio) {
         output.y = (largeY + smallY) / 2.0;
         var xpos_z = (( (largeX - smallX) / Math.tan(camera.fov / (2 * (180 / Math.PI)))) / 2.0) + maxmin.z.max;
         var ypos_z = (( (largeY - smallY) / Math.tan(camera.fov / (2 * (180 / Math.PI)))) / 2.0) + maxmin.z.max;
-        //var xpos_z = ((largeX - smallX) / 2.0) / Math.tan(0.5);
-        //var ypos_z = ((largeY - smallY) / 2.0) / Math.tan(0.5);
         if (xpos_z > ypos_z) {
             output.z = xpos_z + (0.1 * xpos_z);
         } else {
